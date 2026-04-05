@@ -1,6 +1,12 @@
 import subprocess
 
-from app_config import CONFIG_PATH, NODE_ID_MAX, NODE_ID_MIN, format_service_name
+from app_config import (
+    CONFIG_PATH,
+    ETHERNET_SERVICE_NAME,
+    NODE_ID_MAX,
+    NODE_ID_MIN,
+    format_service_name,
+)
 
 
 def get_service_name(node_id: int) -> str:
@@ -83,6 +89,12 @@ def sync_radio_services(node_id: int):
     # Disable the legacy ground-station profile if it exists so it doesn't recreate old interfaces at boot.
     subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "disable", "--now", "wifibroadcast@gs"])
     subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "enable", "--now", target_service])
+
+
+def configure_eth0(node_id: int):
+    del node_id
+    subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "enable", "--now", ETHERNET_SERVICE_NAME])
+    subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "restart", ETHERNET_SERVICE_NAME])
 
 
 def get_service_state(service_name: str) -> str:

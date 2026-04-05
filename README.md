@@ -108,12 +108,28 @@ Systemd unit for running the camera RTP feed on the drone node.
 - Assumes the app is deployed at `/opt/visr`
 - Assumes `/etc/default/wfb-camera` exists on the host
 
+### `systemd/wfb-eth0.service`
+Systemd unit for maintaining the deterministic management address on `eth0`.
+
+- Runs `scripts/wfb-eth0.sh`
+- Reads `/etc/ipradio/node.json`
+- Applies `10.5.0.<node_id>/24` to `eth0`
+- Uses `ip address replace` for the deterministic address without flushing unrelated `eth0` addresses
+- Starts on boot and can be restarted after provisioning
+
 ### `scripts/wfb-camera.sh`
 Repo-managed camera launch script used by `wfb-camera.service`.
 
 - Sources `/etc/default/wfb-camera`
 - Launches `rpicam-vid`
 - Streams H.264 video to `udp://127.0.0.1:5602`
+
+### `scripts/wfb-eth0.sh`
+Repo-managed helper script used by `wfb-eth0.service`.
+
+- Reads the provisioned node ID from `/etc/ipradio/node.json`
+- Adds the deterministic `10.5.0.<node_id>/24` address to `eth0`
+- Leaves other `eth0` addresses in place
 
 ## Provisioning Process
 
@@ -150,6 +166,7 @@ After provisioning, the app:
 - enables the selected radio systemd instance such as `wifibroadcast@node_03`
 - disables other `wifibroadcast@node_XX` instances
 - disables the legacy `wifibroadcast@gs` instance
+- enables and restarts `wfb-eth0.service` so the deterministic `eth0` address is applied persistently
 - restarts the selected radio service
 
 ## Data Flows
@@ -257,6 +274,7 @@ Expected deployment layout:
 - FastAPI served by systemd using `systemd/wfb-api.service`
 - WFB collector served by systemd using `systemd/wfb-collect.service`
 - Camera feed served by systemd using `systemd/wfb-camera.service`
+- Deterministic `eth0` address managed by `systemd/wfb-eth0.service`
 
 Suggested install sequence:
 
@@ -270,6 +288,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 chmod +x scripts/wfb-camera.sh
+chmod +x scripts/wfb-eth0.sh
 ```
 
 Install the API service:
@@ -296,6 +315,14 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now wfb-camera.service
 ```
 
+Install the deterministic `eth0` service:
+
+```bash
+sudo cp systemd/wfb-eth0.service /etc/systemd/system/wfb-eth0.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now wfb-eth0.service
+```
+
 Ensure the camera script is executable:
 
 ```bash
@@ -308,6 +335,7 @@ Check service status:
 sudo systemctl status wfb-api.service
 sudo systemctl status wfb-collect.service
 sudo systemctl status wfb-camera.service
+sudo systemctl status wfb-eth0.service
 ```
 
 View logs:
@@ -316,6 +344,7 @@ View logs:
 journalctl -u wfb-api.service -f
 journalctl -u wfb-collect.service -f
 journalctl -u wfb-camera.service -f
+journalctl -u wfb-eth0.service -f
 ```
 
 ## What Lives Where

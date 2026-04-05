@@ -6,186 +6,376 @@ UI_HTML = """
     <title>WFB Control</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+        :root {
+            --bg: #091017;
+            --bg-panel: rgba(10, 19, 29, 0.92);
+            --bg-panel-strong: rgba(14, 26, 39, 0.98);
+            --line: rgba(120, 160, 190, 0.22);
+            --line-strong: rgba(151, 198, 231, 0.4);
+            --text: #e7f2fb;
+            --muted: #90a8bb;
+            --accent: #73d6ff;
+            --accent-strong: #2af5c9;
+            --danger: #ff8577;
+            --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+        }
         body {
-            font-family: Arial, sans-serif;
-            max-width: 950px;
-            margin: 20px auto;
-            padding: 0 16px;
-            background: #f5f5f5;
+            font-family: "Segoe UI", "Arial Narrow", Arial, sans-serif;
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 28px 20px 40px;
+            background:
+                radial-gradient(circle at top, rgba(42, 245, 201, 0.08), transparent 28%),
+                linear-gradient(180deg, #0b121a 0%, #070d13 100%);
+            color: var(--text);
+            min-height: 100vh;
         }
         h1 {
-            margin-bottom: 8px;
+            margin: 0 0 8px;
+            font-size: 40px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-align: center;
+        }
+        .intro {
+            color: var(--muted);
+            margin: 0 auto 28px;
+            max-width: 760px;
+            text-align: center;
+            line-height: 1.5;
         }
         .card {
-            background: white;
-            padding: 16px;
+            background: var(--bg-panel);
+            padding: 20px;
             margin-bottom: 16px;
-            border-radius: 8px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--line);
+            backdrop-filter: blur(12px);
+            text-align: center;
+        }
+        h2 {
+            margin: 0 0 10px;
+            font-size: 24px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
         label {
             display: block;
-            margin-top: 10px;
-            margin-bottom: 4px;
-            font-weight: bold;
+            margin-top: 14px;
+            margin-bottom: 6px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            font-size: 12px;
+            color: var(--muted);
         }
         input, select, button {
-            padding: 8px;
+            padding: 12px 14px;
             margin: 4px 0 8px 0;
             font-size: 14px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+        }
+        input, select {
+            background: rgba(4, 10, 16, 0.92);
+            color: var(--text);
+            width: min(100%, 340px);
+            box-sizing: border-box;
+            text-align: center;
         }
         button {
             cursor: pointer;
             margin-right: 8px;
+            background: linear-gradient(180deg, rgba(49, 81, 110, 0.95), rgba(18, 36, 53, 0.95));
+            color: var(--text);
+            border-color: rgba(115, 214, 255, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+        }
+        button:hover {
+            border-color: var(--line-strong);
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(0);
         }
         .row {
             display: flex;
-            gap: 8px;
+            gap: 12px;
             flex-wrap: wrap;
             align-items: center;
+            justify-content: center;
+        }
+        .stack {
+            display: grid;
+            gap: 18px;
+        }
+        .split {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+        .section-title {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+        .help {
+            color: var(--muted);
+            font-size: 13px;
+            margin: 0 auto 8px;
+            max-width: 640px;
+            line-height: 1.5;
+        }
+        .action-row button {
+            min-width: 190px;
         }
         pre {
-            background: #111;
-            color: #0f0;
-            padding: 12px;
-            border-radius: 6px;
+            background: #031018;
+            color: var(--accent-strong);
+            padding: 16px;
+            border-radius: 14px;
             overflow-x: auto;
             min-height: 140px;
+            border: 1px solid rgba(42, 245, 201, 0.2);
+            text-align: left;
         }
         .status {
             font-size: 14px;
-            color: #333;
-            margin-bottom: 16px;
+            color: var(--text);
+            margin: 0;
+            display: grid;
+            gap: 10px;
+            align-content: center;
+        }
+        .status strong {
+            color: var(--muted);
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            margin-right: 8px;
+        }
+        .status-chip {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 120px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: rgba(3, 16, 24, 0.88);
         }
         .peer-list {
-            margin-top: 8px;
-            padding: 8px;
-            background: #fafafa;
-            border: 1px solid #ddd;
-            border-radius: 6px;
+            margin: 10px auto 0;
+            padding: 12px;
+            background: rgba(3, 16, 24, 0.88);
+            border: 1px solid var(--line);
+            border-radius: 14px;
             min-height: 40px;
+            max-width: 720px;
         }
         .peer-item {
             display: inline-block;
-            background: #e9e9e9;
-            border-radius: 14px;
-            padding: 6px 10px;
+            background: rgba(30, 54, 73, 0.88);
+            border: 1px solid rgba(115, 214, 255, 0.18);
+            border-radius: 999px;
+            padding: 8px 12px;
             margin: 4px;
         }
         .peer-item button {
             margin-left: 6px;
             padding: 2px 6px;
             font-size: 12px;
+            min-width: 0;
+        }
+        .hero {
+            margin-bottom: 18px;
+        }
+        .hero .card {
+            background: linear-gradient(180deg, var(--bg-panel-strong), rgba(11, 20, 30, 0.98));
+        }
+        .provision-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px 18px;
+            align-items: start;
+            margin-top: 18px;
+        }
+        .provision-grid .field {
+            text-align: center;
+        }
+        .provision-grid .field input,
+        .provision-grid .field select {
+            width: 100%;
+        }
+        .wide {
+            grid-column: 1 / -1;
+        }
+        .big-button {
+            min-width: 260px;
+            min-height: 52px;
+            background: linear-gradient(180deg, rgba(53, 101, 129, 0.98), rgba(15, 48, 69, 0.98));
+            border-color: rgba(42, 245, 201, 0.35);
+        }
+        .secondary {
+            background: linear-gradient(180deg, rgba(54, 65, 76, 0.95), rgba(21, 30, 38, 0.95));
+        }
+        @media (max-width: 720px) {
+            body {
+                padding: 18px 14px 30px;
+            }
+            h1 {
+                font-size: 30px;
+            }
+            .card {
+                padding: 16px;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>WFB Control UI</h1>
-
-    <div class="status">
-        <div><strong>Node ID:</strong> <span id="status_node_id">1</span></div>
-        <div><strong>Radio service:</strong> <span id="radio_state">...</span></div>
-        <div><strong>Camera service:</strong> <span id="camera_state">...</span></div>
-    </div>
-
-    <div class="card">
-        <h2>Node</h2>
-        <label>Current Node ID</label>
-        <input type="number" id="node_id" value="1" min="1" max="16">
-    </div>
-
-    <div class="card">
-        <h2>Radio</h2>
-
-        <label>MCS Index (0 to 5)</label>
-        <div class="row">
-            <input type="number" id="mcs" value="1" min="0" max="5">
-            <button onclick="setMcs()">Set MCS</button>
-        </div>
-
-        <label>Bandwidth</label>
-        <div class="row">
-            <select id="bw">
-                <option value="20">20</option>
-                <option value="40">40</option>
-            </select>
-            <button onclick="setBw()">Set BW</button>
-        </div>
-
-        <label>FEC</label>
-        <div class="row">
-            <input type="number" id="fec_k" value="8" min="1" max="32" placeholder="fec_k">
-            <input type="number" id="fec_n" value="12" min="1" max="64" placeholder="fec_n">
-            <button onclick="setFec()">Set FEC</button>
-        </div>
-        <div>Allowed range: fec_k 1-32, fec_n 1-64, and fec_n must be at least fec_k.</div>
-    </div>
-
-    <div class="card">
-        <h2>Camera</h2>
-
-        <label>Width</label>
-        <input type="number" id="cam_width" value="1280" min="1">
-
-        <label>Height</label>
-        <input type="number" id="cam_height" value="720" min="1">
-
-        <label>Framerate</label>
-        <input type="number" id="cam_framerate" value="30" min="1" max="120">
-
-        <label>Bitrate</label>
-        <input type="number" id="cam_bitrate" value="2000000" min="10000">
-
-        <label>Lens Position</label>
-        <input type="number" id="cam_lens_position" value="0.0" min="0" max="32" step="0.1">
-
-        <div class="row">
-            <button onclick="applyCamera()">Apply Camera Config</button>
-            <button onclick="cameraStart()">Start Camera</button>
-            <button onclick="cameraStop()">Stop Camera</button>
+    <div class="hero">
+        <div class="card">
+            <div class="section-title">Operational Console</div>
+            <h1>WFB Radio Control</h1>
+            <div class="intro">Provision the node, apply link tuning as one operation, then move to camera control and diagnostics. This layout is optimized for fast field-side reconfiguration.</div>
         </div>
     </div>
 
-    <div class="card">
-        <h2>IPRadio</h2>
-
-        <label>Add Peer</label>
-        <div class="row">
-            <select id="peer_select">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-                <option value="9">9</option>
-                <option value="10">10</option>
-                <option value="11">11</option>
-                <option value="12">12</option>
-                <option value="13">13</option>
-                <option value="14">14</option>
-                <option value="15">15</option>
-                <option value="16">16</option>
-            </select>
-            <button onclick="addPeer()">Add Peer</button>
+    <div class="stack">
+        <div class="card">
+            <div class="section-title">Overview</div>
+            <h2>Node Context</h2>
+            <div class="help">Pick the node you are working on and confirm the current radio and camera service state before making changes.</div>
+            <div class="split">
+                <div>
+                    <label>Current Node ID</label>
+                    <input type="number" id="node_id" value="1" min="1" max="16">
+                </div>
+                <div class="status">
+                    <div><strong>Node ID</strong><span id="status_node_id" class="status-chip">1</span></div>
+                    <div><strong>ETH0 Address</strong><span id="eth0_address" class="status-chip">10.5.0.1/24</span></div>
+                    <div><strong>Radio Service</strong><span id="radio_state" class="status-chip">...</span></div>
+                    <div><strong>Camera Service</strong><span id="camera_state" class="status-chip">...</span></div>
+                </div>
+            </div>
         </div>
 
-        <label>Selected Peers</label>
-        <div id="peer_list" class="peer-list"></div>
+        <div class="card">
+            <div class="section-title">Provisioning</div>
+            <h2>Provision And Tune Radio</h2>
+            <div class="help">Define topology and apply radio tuning in one step. This writes the active node config, updates bandwidth and FEC, selects the boot-persistent radio service, and restarts the link once.</div>
 
-        <label>Video RX Target</label>
-        <input type="text" id="video_rx_target" value="127.0.0.1:5600">
+            <label>Add Peer</label>
+            <div class="row">
+                <select id="peer_select">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                </select>
+                <button onclick="addPeer()">Add Peer</button>
+            </div>
 
-        <div class="row">
-            <button onclick="provision()">Provision</button>
+            <label>Selected Peers</label>
+            <div id="peer_list" class="peer-list"></div>
+
+            <label>Video RX Target</label>
+            <input type="text" id="video_rx_target" value="127.0.0.1:5600">
+
+            <div class="provision-grid">
+                <div class="field">
+                    <label>MCS Index</label>
+                    <input type="number" id="mcs" value="1" min="0" max="5">
+                </div>
+                <div class="field">
+                    <label>Bandwidth</label>
+                    <select id="bw">
+                        <option value="20">20 MHz</option>
+                        <option value="40">40 MHz</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>FEC K</label>
+                    <input type="number" id="fec_k" value="8" min="1" max="32" placeholder="fec_k">
+                </div>
+                <div class="field">
+                    <label>FEC N</label>
+                    <input type="number" id="fec_n" value="12" min="1" max="64" placeholder="fec_n">
+                </div>
+                <div class="field wide">
+                    <div class="help">Allowed radio range: MCS 0-5, bandwidth 20 or 40, fec_k 1-32, fec_n 1-64, and fec_n must be at least fec_k.</div>
+                </div>
+                <div class="field wide row action-row">
+                    <button class="big-button" onclick="applyNodeConfig()">Provision And Apply Radio</button>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="card">
-        <h2>Output</h2>
-        <pre id="output">Ready.</pre>
+        <div class="card">
+            <div class="section-title">Camera Actions</div>
+            <h2>Immediate Camera Controls</h2>
+            <div class="help">Use these for quick field checks or to push the detailed camera settings below.</div>
+            <div class="row action-row">
+                <button class="secondary" onclick="cameraStart()">Start Camera</button>
+                <button class="secondary" onclick="cameraStop()">Stop Camera</button>
+                <button onclick="applyCamera()">Apply Camera Settings</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Camera Tuning</div>
+            <h2>Stream Parameters</h2>
+            <div class="help">These values feed the camera launch script and are applied when you update camera settings.</div>
+
+            <div class="provision-grid">
+                <div class="field">
+                    <label>Width</label>
+                    <input type="number" id="cam_width" value="1280" min="1">
+                </div>
+                <div class="field">
+                    <label>Height</label>
+                    <input type="number" id="cam_height" value="720" min="1">
+                </div>
+                <div class="field">
+                    <label>Framerate</label>
+                    <input type="number" id="cam_framerate" value="30" min="1" max="120">
+                </div>
+                <div class="field">
+                    <label>Bitrate</label>
+                    <input type="number" id="cam_bitrate" value="2000000" min="10000">
+                </div>
+                <div class="field wide">
+                    <label>Lens Position</label>
+                    <input type="number" id="cam_lens_position" value="0.0" min="0" max="32" step="0.1">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Diagnostics</div>
+            <h2>API Output</h2>
+            <div class="help">Every action posts its response here so you can quickly confirm what the backend accepted or rejected.</div>
+            <pre id="output">Ready.</pre>
+        </div>
     </div>
 
     <script>
@@ -216,9 +406,11 @@ UI_HTML = """
             try {
                 const response = await fetch("/status/" + nodeId);
                 const data = await response.json();
+                document.getElementById("eth0_address").textContent = data.eth0_address;
                 document.getElementById("radio_state").textContent = data.radio_service;
                 document.getElementById("camera_state").textContent = data.camera_service;
             } catch (err) {
+                document.getElementById("eth0_address").textContent = "error";
                 document.getElementById("radio_state").textContent = "error";
                 document.getElementById("camera_state").textContent = "error";
             }
@@ -241,6 +433,26 @@ UI_HTML = """
             const k = document.getElementById("fec_k").value;
             const n = document.getElementById("fec_n").value;
             apiCall("/set_fec/" + nodeId + "/" + k + "/" + n);
+        }
+
+        function applyNodeConfig() {
+            const nodeId = currentNodeId();
+            const target = encodeURIComponent(document.getElementById("video_rx_target").value);
+            const peers = encodeURIComponent(selectedPeers.join(","));
+            const mcs = encodeURIComponent(document.getElementById("mcs").value);
+            const bw = encodeURIComponent(document.getElementById("bw").value);
+            const fecK = encodeURIComponent(document.getElementById("fec_k").value);
+            const fecN = encodeURIComponent(document.getElementById("fec_n").value);
+
+            const url = "/node/apply/" + nodeId
+                + "?peers=" + peers
+                + "&video_rx_target=" + target
+                + "&mcs_index=" + mcs
+                + "&bandwidth=" + bw
+                + "&fec_k=" + fecK
+                + "&fec_n=" + fecN;
+
+            apiCall(url);
         }
 
         function applyCamera() {
@@ -303,14 +515,6 @@ UI_HTML = """
                     + ' <button onclick="removePeer(' + peer + ')">x</button>'
                     + '</span>';
             }).join("");
-        }
-
-        function provision() {
-            const nodeId = currentNodeId();
-            const target = encodeURIComponent(document.getElementById("video_rx_target").value);
-            const peers = encodeURIComponent(selectedPeers.join(","));
-
-            apiCall("/ipradio/provision/" + nodeId + "?peers=" + peers + "&video_rx_target=" + target);
         }
 
         document.getElementById("node_id").addEventListener("change", function() {

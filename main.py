@@ -1,12 +1,13 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
-from app_config import CAMERA_SERVICE_NAME, NODE_ID_MAX, NODE_ID_MIN, format_profile_name
+from app_config import CAMERA_SERVICE_NAME, NODE_ID_MAX, NODE_ID_MIN, format_eth0_address, format_profile_name
 from camera_service import restart_camera, set_camera_values, start_camera, stop_camera
 from provisioning_service import write_ipradio_node
 from radio_service import (
     get_service_name,
     get_service_state,
+    configure_eth0,
     restart_radio,
     sync_radio_services,
     update_base_value,
@@ -15,6 +16,44 @@ from radio_service import (
 from ui import UI_HTML
 
 app = FastAPI()
+
+
+def validate_node_id(node_id: int):
+    if node_id < NODE_ID_MIN or node_id > NODE_ID_MAX:
+        return {"error": f"node_id must be between {NODE_ID_MIN} and {NODE_ID_MAX}"}
+    return None
+
+
+def validate_radio_settings(mcs_index: int, bandwidth: int, fec_k: int, fec_n: int):
+    if mcs_index < 0 or mcs_index > 5:
+        return {"error": "mcs_index must be between 0 and 5"}
+
+    if bandwidth not in [20, 40]:
+        return {"error": "bandwidth must be 20 or 40"}
+
+    if fec_k < 1 or fec_k > 32:
+        return {"error": "fec_k must be between 1 and 32"}
+
+    if fec_n < 1 or fec_n > 64:
+        return {"error": "fec_n must be between 1 and 64"}
+
+    if fec_n < fec_k:
+        return {"error": "fec_n must be greater than or equal to fec_k"}
+
+    return None
+
+
+def apply_radio_settings(mcs_index: int, bandwidth: int, fec_k: int, fec_n: int):
+    update_base_value("mcs_index", mcs_index, "mcs index")
+    update_base_value("bandwidth", bandwidth, "bandwidth")
+    update_tunnel_value(
+        "fec_k",
+        fec_k,
+        "fec_n",
+        fec_n,
+        "FEC K value",
+        "FEC N value",
+    )
 
 
 @app.get("/")
@@ -26,6 +65,7 @@ def root():
 def status(node_id: int):
     return {
         "node_id": node_id,
+        "eth0_address": format_eth0_address(node_id),
         "radio_service": get_service_state(get_service_name(node_id)),
         "camera_service": get_service_state(CAMERA_SERVICE_NAME),
     }
@@ -33,8 +73,9 @@ def status(node_id: int):
 
 @app.get("/set_mcs/{node_id}/{value}")
 def set_mcs(node_id: int, value: int):
-    if node_id < NODE_ID_MIN or node_id > NODE_ID_MAX:
-        return {"error": f"node_id must be between {NODE_ID_MIN} and {NODE_ID_MAX}"}
+    node_error = validate_node_id(node_id)
+    if node_error:
+        return node_error
 
     if value < 0 or value > 5:
         return {"error": "mcs_index must be between 0 and 5"}
@@ -46,8 +87,9 @@ def set_mcs(node_id: int, value: int):
 
 @app.get("/set_bw/{node_id}/{value}")
 def set_bw(node_id: int, value: int):
-    if node_id < NODE_ID_MIN or node_id > NODE_ID_MAX:
-        return {"error": f"node_id must be between {NODE_ID_MIN} and {NODE_ID_MAX}"}
+    node_error = validate_node_id(node_id)
+    if node_error:
+        return node_error
 
     if value not in [20, 40]:
         return {"error": "bandwidth must be 20 or 40"}
@@ -59,8 +101,9 @@ def set_bw(node_id: int, value: int):
 
 @app.get("/set_fec/{node_id}/{value1}/{value2}")
 def set_fec(node_id: int, value1: int, value2: int):
-    if node_id < NODE_ID_MIN or node_id > NODE_ID_MAX:
-        return {"error": f"node_id must be between {NODE_ID_MIN} and {NODE_ID_MAX}"}
+    node_error = validate_node_id(node_id)
+    if node_error:
+        return node_error
 
     if value1 < 1 or value1 > 32:
         return {"error": "fec_k must be between 1 and 32"}
@@ -127,8 +170,9 @@ def camera_control(command: str):
 
 @app.get("/ipradio/provision/{node_id}")
 def ipradio_provision(node_id: int, peers: str, video_rx_target: str):
-    if node_id < NODE_ID_MIN or node_id > NODE_ID_MAX:
-        return {"error": f"node_id must be between {NODE_ID_MIN} and {NODE_ID_MAX}"}
+    node_error = validate_node_id(node_id)
+    if node_error:
+        return node_error
 
     try:
         peer_list = [int(x) for x in peers.split(",") if x.strip()]
@@ -153,14 +197,76 @@ def ipradio_provision(node_id: int, peers: str, video_rx_target: str):
         return {"error": str(error)}
 
     sync_radio_services(node_id)
+    configure_eth0(node_id)
     restart_radio(node_id)
 
     return {
         "status": "provisioned",
         "profile": format_profile_name(node_id),
         "node_id": node_id,
+        "eth0_address": format_eth0_address(node_id),
         "peers": peer_list,
         "video_rx_target": video_rx_target,
+        "service_name": get_service_name(node_id),
+    }
+
+
+@app.get("/node/apply/{node_id}")
+def apply_node_config(
+    node_id: int,
+    peers: str,
+    video_rx_target: str,
+    mcs_index: int,
+    bandwidth: int,
+    fec_k: int,
+    fec_n: int,
+):
+    node_error = validate_node_id(node_id)
+    if node_error:
+        return node_error
+
+    radio_error = validate_radio_settings(mcs_index, bandwidth, fec_k, fec_n)
+    if radio_error:
+        return radio_error
+
+    try:
+        peer_list = [int(x) for x in peers.split(",") if x.strip()]
+    except ValueError:
+        return {"error": "peers must be comma-separated integers"}
+
+    if node_id in peer_list:
+        return {"error": "node cannot peer with itself"}
+
+    if len(peer_list) != len(set(peer_list)):
+        return {"error": "duplicate peers are not allowed"}
+
+    invalid_peers = [peer for peer in peer_list if peer < NODE_ID_MIN or peer > NODE_ID_MAX]
+    if invalid_peers:
+        return {"error": f"invalid peer ids: {invalid_peers}"}
+
+    try:
+        write_ipradio_node(node_id, peer_list, video_rx_target)
+    except FileNotFoundError as error:
+        return {"error": f"missing file: {str(error)}"}
+    except Exception as error:
+        return {"error": str(error)}
+
+    apply_radio_settings(mcs_index, bandwidth, fec_k, fec_n)
+    sync_radio_services(node_id)
+    configure_eth0(node_id)
+    restart_radio(node_id)
+
+    return {
+        "status": "applied",
+        "profile": format_profile_name(node_id),
+        "node_id": node_id,
+        "eth0_address": format_eth0_address(node_id),
+        "peers": peer_list,
+        "video_rx_target": video_rx_target,
+        "mcs_index": mcs_index,
+        "bandwidth": bandwidth,
+        "fec_k": fec_k,
+        "fec_n": fec_n,
         "service_name": get_service_name(node_id),
     }
 

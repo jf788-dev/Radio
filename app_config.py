@@ -20,6 +20,9 @@ MQTT_HOST = "localhost"
 MQTT_PORT = 1883
 
 CAMERA_SERVICE_NAME = "wfb-camera"
+ETHERNET_INTERFACE = "eth0"
+ETHERNET_SUBNET_PREFIX = "10.5.0"
+ETHERNET_SERVICE_NAME = "wfb-eth0.service"
 
 
 def format_node_name(node_id: int) -> str:
@@ -32,3 +35,7 @@ def format_profile_name(node_id: int) -> str:
 
 def format_service_name(node_id: int) -> str:
     return f"wifibroadcast@{format_node_name(node_id)}"
+
+
+def format_eth0_address(node_id: int) -> str:
+    return f"{ETHERNET_SUBNET_PREFIX}.{node_id}/24"

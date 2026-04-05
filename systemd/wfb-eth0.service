@@ -1,0 +1,13 @@
+[Unit]
+Description=VISR deterministic eth0 address
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+ExecStart=/opt/visr/scripts/wfb-eth0.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
