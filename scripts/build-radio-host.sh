@@ -11,6 +11,7 @@ NETWORKMANAGER_CONF="/etc/NetworkManager/NetworkManager.conf"
 DHCPCD_CONF="/etc/dhcpcd.conf"
 TOTAL_STEPS=8
 STEP=0
+REBOOT_ON_COMPLETE="${REBOOT_ON_COMPLETE:-1}"
 
 print_step() {
   STEP=$((STEP + 1))
@@ -151,4 +152,11 @@ configure_network_manager
 configure_dhcpcd
 restart_network_services
 
-echo "Radio host build complete. Reboot is strongly recommended before first radio test."
+echo
+if [ "$REBOOT_ON_COMPLETE" = "1" ]; then
+  echo "Radio host build complete. Rebooting now so the Wi-Fi driver and network stack come up cleanly."
+  sleep 3
+  reboot
+else
+  echo "Radio host build complete. Reboot skipped because REBOOT_ON_COMPLETE=0."
+fi

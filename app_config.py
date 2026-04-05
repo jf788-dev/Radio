@@ -19,6 +19,7 @@ IPRADIO_CURRENT_KEY_PATH = Path("/etc/ipradio/current_key.json")
 WFB_GS_KEY_PATH = Path("/etc/gs.key")
 WFB_DRONE_KEY_PATH = Path("/etc/drone.key")
 WFB_KEYGEN_COMMAND = "/usr/bin/wfb_keygen"
+BUNDLED_TEST_KEY_DIR = Path("config/keys/test-default")
 
 WFB_API_HOST = "127.0.0.1"
 WFB_API_PORT = 8102

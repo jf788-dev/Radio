@@ -1,0 +1,15 @@
+[Unit]
+Description=VISR Docker observability stack
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/visr
+ExecStart=/usr/bin/docker compose -f /opt/visr/docker-compose.yaml up -d
+ExecStop=/usr/bin/docker compose -f /opt/visr/docker-compose.yaml down
+RemainAfterExit=yes
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

@@ -110,6 +110,13 @@ Systemd unit for running the WFB telemetry collector on the Pi.
 - Assumes a virtual environment exists at `/opt/visr/venv`
 - Waits briefly before startup so dependent services can settle
 
+### `systemd/wfb-observability.service`
+Systemd unit for bringing up the Docker Compose observability stack on boot.
+
+- Runs `docker compose up -d` for `/opt/visr/docker-compose.yaml`
+- Starts after Docker and network are available
+- Keeps the MQTT, database, and dashboard stack aligned with the radio app boot flow
+
 ### `systemd/wfb-camera.service`
 Systemd unit for running the camera RTP feed on the drone node.
 
@@ -344,6 +351,7 @@ This full bootstrap script:
 - installs camera and media packages
 - configures `NetworkManager` and `dhcpcd` so `wlan1` is unmanaged
 - installs the VISR app and systemd units
+- resumes itself automatically after the required reboot to finish the app install
 
 Docker and Docker Compose are needed for the observability stack in `docker-compose.yaml`.
 The core radio control app can run without that stack, but Grafana, Mosquitto, Postgres, and related services will not come up without Docker and `docker compose`.
@@ -367,6 +375,7 @@ The bootstrap script:
   - `wfb-api.service`
   - `wfb-collect.service`
   - `wfb-eth0.service`
+  - `wfb-observability.service`
 - installs but does not enable `wfb-camera.service`
 
 Host-only bootstrap:
