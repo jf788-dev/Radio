@@ -89,15 +89,15 @@ Systemd unit for running the FastAPI control service on the Pi.
 
 - Runs `uvicorn main:app`
 - Binds the HTTP API on port `8000`
-- Assumes the repo is deployed at `/home/pi/visr/wfb_collect`
-- Assumes a virtual environment exists at `/home/pi/visr/wfb_collect/venv`
+- Assumes the app is deployed at `/opt/visr`
+- Assumes a virtual environment exists at `/opt/visr/venv`
 
 ### `systemd/wfb-collect.service`
 Systemd unit for running the WFB telemetry collector on the Pi.
 
 - Runs `wfb_collect.py`
-- Assumes the repo is deployed at `/home/pi/visr/wfb_collect`
-- Assumes a virtual environment exists at `/home/pi/visr/wfb_collect/venv`
+- Assumes the app is deployed at `/opt/visr`
+- Assumes a virtual environment exists at `/opt/visr/venv`
 - Waits briefly before startup so dependent services can settle
 
 ### `systemd/wfb-camera.service`
@@ -105,7 +105,7 @@ Systemd unit for running the camera RTP feed on the drone node.
 
 - Runs `scripts/wfb-camera.sh`
 - Restarts automatically if the camera feed exits
-- Assumes the repo is deployed at `/home/pi/visr/wfb_collect`
+- Assumes the app is deployed at `/opt/visr`
 - Assumes `/etc/default/wfb-camera` exists on the host
 
 ### `scripts/wfb-camera.sh`
@@ -247,11 +247,25 @@ docker compose up -d
 
 Expected deployment layout:
 
-- repo checkout at `/home/pi/visr/wfb_collect`
-- virtual environment at `/home/pi/visr/wfb_collect/venv`
+- app checkout at `/opt/visr`
+- virtual environment at `/opt/visr/venv`
 - FastAPI served by systemd using `systemd/wfb-api.service`
 - WFB collector served by systemd using `systemd/wfb-collect.service`
 - Camera feed served by systemd using `systemd/wfb-camera.service`
+
+Suggested install sequence:
+
+```bash
+sudo rm -rf /opt/visr
+sudo mkdir -p /opt/visr
+sudo chown pi:pi /opt/visr
+git clone <your-private-repo-url> /opt/visr
+cd /opt/visr
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+chmod +x scripts/wfb-camera.sh
+```
 
 Install the API service:
 
@@ -318,3 +332,25 @@ Host-managed:
 - `/etc/ipradio/node.cfg`
 - `/etc/default/wfb-camera`
 - any installed systemd units under `/etc/systemd/system/`
+
+## Node Cleanup Before Deploy
+
+If you want to replace the old deployment entirely, remove the old units before enabling the new ones:
+
+```bash
+sudo systemctl disable --now wfb-api.service wfb-collect.service wfb-camera.service
+sudo rm -f /etc/systemd/system/wfb-api.service
+sudo rm -f /etc/systemd/system/wfb-collect.service
+sudo rm -f /etc/systemd/system/wfb-camera.service
+sudo systemctl daemon-reload
+```
+
+Back up the live runtime config before first use of the new app:
+
+```bash
+sudo cp /etc/wifibroadcast.cfg /etc/wifibroadcast.cfg.bak
+sudo cp /etc/default/wfb-camera /etc/default/wfb-camera.bak
+sudo cp /etc/ipradio/base.cfg /etc/ipradio/base.cfg.bak
+sudo cp /etc/ipradio/node.json /etc/ipradio/node.json.bak 2>/dev/null || true
+sudo cp /etc/ipradio/node.cfg /etc/ipradio/node.cfg.bak 2>/dev/null || true
+```

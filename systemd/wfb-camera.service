@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/home/pi/visr/wfb_collect/scripts/wfb-camera.sh
+ExecStart=/opt/visr/scripts/wfb-camera.sh
 Restart=always
 RestartSec=1
 User=pi

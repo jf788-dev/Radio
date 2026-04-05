@@ -7,11 +7,11 @@ Wants=network-online.target
 Type=simple
 User=pi
 Group=pi
-WorkingDirectory=/home/pi/visr/wfb_collect
-Environment="PATH=/home/pi/visr/wfb_collect/venv/bin"
+WorkingDirectory=/opt/visr
+Environment="PATH=/opt/visr/venv/bin"
 Environment="PYTHONUNBUFFERED=1"
 ExecStartPre=/bin/sleep 5
-ExecStart=/home/pi/visr/wfb_collect/venv/bin/python /home/pi/visr/wfb_collect/wfb_collect.py
+ExecStart=/opt/visr/venv/bin/python /opt/visr/wfb_collect.py
 Restart=always
 RestartSec=5
 
