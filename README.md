@@ -208,6 +208,17 @@ The shared defaults exposed by `/defaults` and loaded by the UI are:
 
 The named default test key bundle is `test-default`. If it does not exist on a Pi yet, `/keys/default_test/ensure` generates it locally and installs it.
 
+## Base Config
+
+The app provisioning flow uses a repo-managed baseline WFB config template at `config/base.cfg`.
+
+- bootstrap installs it to `/etc/ipradio/base.cfg` if that file is missing
+- bootstrap seeds `/etc/wifibroadcast.cfg` from `/etc/ipradio/base.cfg` if the live file is missing
+- provisioning then writes the final live config as:
+  - `/etc/wifibroadcast.cfg = /etc/ipradio/base.cfg + /etc/ipradio/node.cfg`
+
+This keeps the baseline config internal to the install flow so a fresh Pi does not require manual creation of `/etc/ipradio/base.cfg`.
+
 ## Data Flows
 
 ### 1. Control Flow
@@ -315,11 +326,27 @@ Expected deployment layout after bootstrap:
 - Camera feed available through `systemd/wfb-camera.service`
 - Deterministic `eth0` address managed by `systemd/wfb-eth0.service`
 
-Bootstrap from a staged checkout:
+Full Pi bootstrap from a staged checkout:
 
 ```bash
 git clone <your-private-repo-url> ~/wfb_collect
 cd ~/wfb_collect
+sudo ./scripts/bootstrap-radio.sh
+```
+
+This full bootstrap script:
+
+- updates the host packages
+- installs Docker if missing
+- installs the RTL8812AU DKMS driver from `svpcom/rtl8812au`
+- adds the `wfb-ng` apt repository and installs `wfb-ng`
+- installs camera and media packages
+- configures `NetworkManager` and `dhcpcd` so `wlan1` is unmanaged
+- installs the VISR app and systemd units
+
+App-only bootstrap:
+
+```bash
 sudo ./scripts/install-visr.sh
 ```
 
@@ -328,12 +355,21 @@ The bootstrap script:
 - copies the staged checkout into `/opt/visr`
 - creates `/opt/visr/venv` if it does not exist yet
 - installs Python dependencies from `requirements.txt`
+- creates `/etc/ipradio` and `/etc/ipradio/keys`
+- installs `/etc/ipradio/base.cfg` from `config/base.cfg` if it is missing
+- seeds `/etc/wifibroadcast.cfg` from that base template if the live config is missing
 - installs the systemd unit files
 - enables and starts:
   - `wfb-api.service`
   - `wfb-collect.service`
   - `wfb-eth0.service`
 - installs but does not enable `wfb-camera.service`
+
+Host-only bootstrap:
+
+```bash
+sudo ./scripts/build-radio-host.sh
+```
 
 Check service status:
 

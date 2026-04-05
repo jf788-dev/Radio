@@ -6,6 +6,9 @@ SYSTEMD_DIR="/etc/systemd/system"
 VENV_DIR="${APP_ROOT}/venv"
 SERVICE_USER="${SERVICE_USER:-pi}"
 SOURCE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+IPRADIO_DIR="/etc/ipradio"
+IPRADIO_BASE_CFG="${IPRADIO_DIR}/base.cfg"
+LIVE_WFB_CFG="/etc/wifibroadcast.cfg"
 
 require_root() {
   if [ "$(id -u)" -ne 0 ]; then
@@ -48,10 +51,27 @@ prepare_venv() {
   sudo -u "$SERVICE_USER" "${VENV_DIR}/bin/pip" install -r "${APP_ROOT}/requirements.txt"
 }
 
+prepare_runtime_config() {
+  install -d -m 755 "$IPRADIO_DIR"
+  install -d -m 755 "${IPRADIO_DIR}/keys"
+
+  if [ ! -s "$IPRADIO_BASE_CFG" ]; then
+    install -m 644 "${APP_ROOT}/config/base.cfg" "$IPRADIO_BASE_CFG"
+  fi
+
+  if [ ! -s "$LIVE_WFB_CFG" ]; then
+    install -m 644 "$IPRADIO_BASE_CFG" "$LIVE_WFB_CFG"
+  fi
+
+  chown -R "${SERVICE_USER}:${SERVICE_USER}" "$IPRADIO_DIR"
+  chown "${SERVICE_USER}:${SERVICE_USER}" "$LIVE_WFB_CFG"
+}
+
 require_root
 
 prepare_app_root
 prepare_venv
+prepare_runtime_config
 
 chmod 755 "${APP_ROOT}/scripts/wfb-camera.sh"
 chmod 755 "${APP_ROOT}/scripts/wfb-eth0.sh"

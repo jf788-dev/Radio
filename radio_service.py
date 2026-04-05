@@ -137,7 +137,7 @@ def get_current_radio_settings() -> dict[str, Any]:
     sections = _read_ini_like_config()
     base = sections.get("base", {})
     tunnel = sections.get("tunnel", {})
-    node_video_rx = sections.get("nodevideorx", {})
+    node_video_rx = sections.get("node_video_rx", {})
     peers: list[int] = []
 
     if IPRADIO_NODE_PATH.exists():

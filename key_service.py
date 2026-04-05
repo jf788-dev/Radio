@@ -11,6 +11,7 @@ from app_config import (
     IPRADIO_CURRENT_KEY_PATH,
     IPRADIO_KEY_DIR,
     IPRADIO_KEY_INDEX_PATH,
+    SERVICE_USER,
     WFB_DRONE_KEY_PATH,
     WFB_GS_KEY_PATH,
     WFB_KEYGEN_COMMAND,
@@ -157,6 +158,10 @@ def install_key_bundle(bundle_id: str) -> dict:
         subprocess.run(["/usr/bin/sudo", "/bin/cp", str(drone_temp), str(WFB_DRONE_KEY_PATH)], check=True)
         subprocess.run(["/usr/bin/sudo", "/bin/chmod", "600", str(WFB_GS_KEY_PATH)], check=True)
         subprocess.run(["/usr/bin/sudo", "/bin/chmod", "600", str(WFB_DRONE_KEY_PATH)], check=True)
+        subprocess.run(
+            ["/usr/bin/sudo", "/bin/chown", f"{SERVICE_USER}:{SERVICE_USER}", str(WFB_GS_KEY_PATH), str(WFB_DRONE_KEY_PATH)],
+            check=True,
+        )
 
     _set_current_bundle(bundle_id)
     return {
