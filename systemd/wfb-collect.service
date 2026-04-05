@@ -1,0 +1,19 @@
+[Unit]
+Description=VISR WFB Collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/visr/wfb_collect
+Environment="PATH=/home/pi/visr/wfb_collect/venv/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStartPre=/bin/sleep 5
+ExecStart=/home/pi/visr/wfb_collect/venv/bin/python /home/pi/visr/wfb_collect/wfb_collect.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

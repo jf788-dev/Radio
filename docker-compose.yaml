@@ -32,14 +32,11 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./config/grafana.ini:/etc/grafana/grafana.ini:ro
-      - ./config/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
-      - ./config/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./config/dashboards:/var/lib/grafana/dashboards:ro
 
   postgres:
     # NOTE: timescaledb-ha is heavy. If you don't need HA features, consider:
     # image: timescale/timescaledb:2.24.0-pg16
-    image: timescale/timescaledb-ha:pg16.11-ts2.24.0-all-oss
+    image: postgres:16
     container_name: postgres
     restart: unless-stopped
     environment:
