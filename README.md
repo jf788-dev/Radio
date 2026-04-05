@@ -100,6 +100,21 @@ Systemd unit for running the WFB telemetry collector on the Pi.
 - Assumes a virtual environment exists at `/home/pi/visr/wfb_collect/venv`
 - Waits briefly before startup so dependent services can settle
 
+### `systemd/wfb-camera.service`
+Systemd unit for running the camera RTP feed on the drone node.
+
+- Runs `scripts/wfb-camera.sh`
+- Restarts automatically if the camera feed exits
+- Assumes the repo is deployed at `/home/pi/visr/wfb_collect`
+- Assumes `/etc/default/wfb-camera` exists on the host
+
+### `scripts/wfb-camera.sh`
+Repo-managed camera launch script used by `wfb-camera.service`.
+
+- Sources `/etc/default/wfb-camera`
+- Launches `rpicam-vid`
+- Streams H.264 video to `udp://127.0.0.1:5602`
+
 ## Provisioning Process
 
 Provisioning starts through the FastAPI route in `main.py`:
@@ -236,6 +251,7 @@ Expected deployment layout:
 - virtual environment at `/home/pi/visr/wfb_collect/venv`
 - FastAPI served by systemd using `systemd/wfb-api.service`
 - WFB collector served by systemd using `systemd/wfb-collect.service`
+- Camera feed served by systemd using `systemd/wfb-camera.service`
 
 Install the API service:
 
@@ -253,11 +269,26 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now wfb-collect.service
 ```
 
+Install the camera service:
+
+```bash
+sudo cp systemd/wfb-camera.service /etc/systemd/system/wfb-camera.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now wfb-camera.service
+```
+
+Ensure the camera script is executable:
+
+```bash
+chmod +x scripts/wfb-camera.sh
+```
+
 Check service status:
 
 ```bash
 sudo systemctl status wfb-api.service
 sudo systemctl status wfb-collect.service
+sudo systemctl status wfb-camera.service
 ```
 
 View logs:
@@ -265,6 +296,7 @@ View logs:
 ```bash
 journalctl -u wfb-api.service -f
 journalctl -u wfb-collect.service -f
+journalctl -u wfb-camera.service -f
 ```
 
 ## What Lives Where
@@ -284,4 +316,5 @@ Host-managed:
 - `/etc/ipradio/base.cfg`
 - `/etc/ipradio/node.json`
 - `/etc/ipradio/node.cfg`
+- `/etc/default/wfb-camera`
 - any installed systemd units under `/etc/systemd/system/`

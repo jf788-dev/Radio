@@ -1,0 +1,14 @@
+[Unit]
+Description=WFB camera RTP feed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/pi/visr/wfb_collect/scripts/wfb-camera.sh
+Restart=always
+RestartSec=1
+User=pi
+
+[Install]
+WantedBy=multi-user.target
