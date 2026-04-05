@@ -12,7 +12,7 @@ from app_config import (
 
 
 def tunnel_ifname(node_id: int, peer: int) -> str:
-    return f"wfb{node_id}_{peer}"
+    return f"wfb{node_id:02d}{peer:02d}"
 
 
 def tunnel_ifaddr(node_id: int, peer: int) -> str:
@@ -30,8 +30,8 @@ def generate_ipradio_cfg(node: dict) -> str:
     stream_lines = []
 
     stream_lines.append(
-        f"{{'name': 'video_{node_id:02d}_tx', 'stream_rx': None, 'stream_tx': 0x{node_id - 1:02x}, "
-        f"'service_type': 'udp_direct_tx', 'profiles': ['base', 'side_a', 'video', 'node_video_tx']}}"
+        f"{{'name': 'video{node_id:02d}tx', 'stream_rx': None, 'stream_tx': 0x{node_id - 1:02x}, "
+        f"'service_type': 'udp_direct_tx', 'profiles': ['base', 'sidea', 'video', 'nodevideotx']}}"
     )
 
     for peer in peers:
@@ -39,22 +39,22 @@ def generate_ipradio_cfg(node: dict) -> str:
             continue
 
         stream_lines.append(
-            f"{{'name': 'video_{peer:02d}_rx', 'stream_rx': 0x{peer - 1:02x}, 'stream_tx': None, "
-            f"'service_type': 'udp_direct_rx', 'profiles': ['base', 'side_b', 'video', 'node_video_rx']}}"
+            f"{{'name': 'video{peer:02d}rx', 'stream_rx': 0x{peer - 1:02x}, 'stream_tx': None, "
+            f"'service_type': 'udp_direct_rx', 'profiles': ['base', 'sideb', 'video', 'nodevideorx']}}"
         )
 
         if node_id > peer:
             stream_tx = 0x20 + (node_id - 1)
             stream_rx = 0xA0 + (peer - 1)
-            side = "side_a"
+            side = "sidea"
         else:
             stream_tx = 0xA0 + (node_id - 1)
             stream_rx = 0x20 + (peer - 1)
-            side = "side_b"
+            side = "sideb"
 
         stream_lines.append(
-            f"{{'name': 'tunnel_{peer:02d}', 'stream_rx': 0x{stream_rx:02x}, 'stream_tx': 0x{stream_tx:02x}, "
-            f"'service_type': 'tunnel', 'profiles': ['base', '{side}', 'tunnel', '{format_profile_name(node_id)}_tunnel_{peer:02d}']}}"
+            f"{{'name': 'tunnel{peer:02d}', 'stream_rx': 0x{stream_rx:02x}, 'stream_tx': 0x{stream_tx:02x}, "
+            f"'service_type': 'tunnel', 'profiles': ['base', '{side}', 'tunnel', '{format_profile_name(node_id)}tunnel{peer:02d}']}}"
         )
 
     lines = []
@@ -71,11 +71,11 @@ def generate_ipradio_cfg(node: dict) -> str:
     lines.append('link_domain = "default"')
     lines.append("")
 
-    lines.append("[node_video_tx]")
+    lines.append("[nodevideotx]")
     lines.append("peer = 'listen://0.0.0.0:5602'")
     lines.append("")
 
-    lines.append("[node_video_rx]")
+    lines.append("[nodevideorx]")
     lines.append(f"peer = 'connect://{video_rx_target}'")
     lines.append("")
 
@@ -83,7 +83,7 @@ def generate_ipradio_cfg(node: dict) -> str:
         if peer == node_id:
             continue
 
-        lines.append(f"[{format_profile_name(node_id)}_tunnel_{peer:02d}]")
+        lines.append(f"[{format_profile_name(node_id)}tunnel{peer:02d}]")
         lines.append("fwmark = 30")
         lines.append(f"ifname = '{tunnel_ifname(node_id, peer)}'")
         lines.append(f"ifaddr = '{tunnel_ifaddr(node_id, peer)}'")

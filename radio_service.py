@@ -1,8 +1,10 @@
 import subprocess
+from typing import Any
 
 from app_config import (
     CONFIG_PATH,
     ETHERNET_SERVICE_NAME,
+    IPRADIO_NODE_PATH,
     NODE_ID_MAX,
     NODE_ID_MIN,
     format_service_name,
@@ -104,3 +106,55 @@ def get_service_state(service_name: str) -> str:
         text=True,
     )
     return result.stdout.strip() if result.stdout.strip() else "unknown"
+
+
+def _read_ini_like_config() -> dict[str, dict[str, str]]:
+    sections: dict[str, dict[str, str]] = {}
+    current_section: str | None = None
+
+    if not CONFIG_PATH.exists():
+        return sections
+
+    with CONFIG_PATH.open("r") as file_handle:
+        for raw_line in file_handle:
+            line = raw_line.split("#", 1)[0].strip()
+            if not line:
+                continue
+
+            if line.startswith("[") and line.endswith("]"):
+                current_section = line[1:-1]
+                sections.setdefault(current_section, {})
+                continue
+
+            if current_section and "=" in line:
+                key, value = line.split("=", 1)
+                sections[current_section][key.strip()] = value.strip().strip("'\"")
+
+    return sections
+
+
+def get_current_radio_settings() -> dict[str, Any]:
+    sections = _read_ini_like_config()
+    base = sections.get("base", {})
+    tunnel = sections.get("tunnel", {})
+    node_video_rx = sections.get("nodevideorx", {})
+    peers: list[int] = []
+
+    if IPRADIO_NODE_PATH.exists():
+        try:
+            import json
+
+            with IPRADIO_NODE_PATH.open("r", encoding="utf-8") as file_handle:
+                node = json.load(file_handle)
+            peers = [int(peer) for peer in node.get("links", [])]
+        except Exception:
+            peers = []
+
+    return {
+        "mcs_index": base.get("mcs_index"),
+        "bandwidth": base.get("bandwidth"),
+        "fec_k": tunnel.get("fec_k"),
+        "fec_n": tunnel.get("fec_n"),
+        "video_rx_target": node_video_rx.get("peer"),
+        "peers": peers,
+    }

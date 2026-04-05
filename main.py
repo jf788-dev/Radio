@@ -1,10 +1,41 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
-from app_config import CAMERA_SERVICE_NAME, NODE_ID_MAX, NODE_ID_MIN, format_eth0_address, format_profile_name
-from camera_service import restart_camera, set_camera_values, start_camera, stop_camera
+from app_config import (
+    CAMERA_SERVICE_NAME,
+    DEFAULT_BANDWIDTH,
+    DEFAULT_CAMERA_BITRATE,
+    DEFAULT_CAMERA_FRAMERATE,
+    DEFAULT_CAMERA_HEIGHT,
+    DEFAULT_CAMERA_LENS_POSITION,
+    DEFAULT_CAMERA_WIDTH,
+    DEFAULT_FEC_K,
+    DEFAULT_FEC_N,
+    DEFAULT_MCS_INDEX,
+    DEFAULT_TEST_KEY_BUNDLE_ID,
+    DEFAULT_VIDEO_RX_TARGET,
+    NODE_ID_MAX,
+    NODE_ID_MIN,
+    format_eth0_address,
+    format_hostname,
+    format_profile_name,
+)
+from camera_service import get_camera_values, restart_camera, set_camera_values, start_camera, stop_camera
+from hostname_service import set_node_hostname
+from key_service import (
+    ensure_default_test_bundle,
+    export_key_bundle,
+    generate_key_bundle,
+    get_current_bundle_id,
+    get_key_status,
+    import_key_bundle,
+    key_bundle_exists,
+    set_default_test_bundle,
+)
 from provisioning_service import write_ipradio_node
 from radio_service import (
+    get_current_radio_settings,
     get_service_name,
     get_service_state,
     configure_eth0,
@@ -16,6 +47,17 @@ from radio_service import (
 from ui import UI_HTML
 
 app = FastAPI()
+
+
+class KeyBundleImportRequest(BaseModel):
+    bundle_id: str
+    gs_key_b64: str
+    drone_key_b64: str
+    install: bool = True
+
+
+class DefaultTestBundleRequest(BaseModel):
+    bundle_id: str
 
 
 def validate_node_id(node_id: int):
@@ -61,13 +103,113 @@ def root():
     return {"message": "API is working"}
 
 
+@app.get("/defaults")
+def defaults():
+    return {
+        "radio": {
+            "mcs_index": DEFAULT_MCS_INDEX,
+            "bandwidth": DEFAULT_BANDWIDTH,
+            "fec_k": DEFAULT_FEC_K,
+            "fec_n": DEFAULT_FEC_N,
+            "video_rx_target": DEFAULT_VIDEO_RX_TARGET,
+        },
+        "camera": {
+            "width": DEFAULT_CAMERA_WIDTH,
+            "height": DEFAULT_CAMERA_HEIGHT,
+            "framerate": DEFAULT_CAMERA_FRAMERATE,
+            "bitrate": DEFAULT_CAMERA_BITRATE,
+            "lens_position": DEFAULT_CAMERA_LENS_POSITION,
+        },
+        "keys": {
+            "default_test_bundle_id": DEFAULT_TEST_KEY_BUNDLE_ID,
+            "default_test_bundle_present": key_bundle_exists(DEFAULT_TEST_KEY_BUNDLE_ID),
+        },
+    }
+
+
+@app.get("/keys/status")
+def key_status():
+    return get_key_status()
+
+
+@app.get("/keys/generate")
+def key_generate():
+    try:
+        return generate_key_bundle()
+    except FileNotFoundError as error:
+        return {"error": f"missing file: {str(error)}"}
+    except Exception as error:
+        return {"error": str(error)}
+
+
+@app.get("/keys/export/current")
+def key_export_current():
+    bundle_id = get_current_bundle_id()
+    if not bundle_id:
+        return {"error": "no active key bundle installed"}
+
+    try:
+        return export_key_bundle(bundle_id)
+    except FileNotFoundError as error:
+        return {"error": f"missing file: {str(error)}"}
+    except Exception as error:
+        return {"error": str(error)}
+
+
+@app.get("/keys/export/{bundle_id}")
+def key_export(bundle_id: str):
+    try:
+        return export_key_bundle(bundle_id)
+    except FileNotFoundError as error:
+        return {"error": f"missing file: {str(error)}"}
+    except Exception as error:
+        return {"error": str(error)}
+
+
+@app.post("/keys/import")
+def key_import(payload: KeyBundleImportRequest):
+    try:
+        return import_key_bundle(
+            bundle_id=payload.bundle_id,
+            gs_key_b64=payload.gs_key_b64,
+            drone_key_b64=payload.drone_key_b64,
+            install=payload.install,
+        )
+    except Exception as error:
+        return {"error": str(error)}
+
+
+@app.get("/keys/default_test/ensure")
+def key_default_test_ensure():
+    try:
+        return ensure_default_test_bundle()
+    except FileNotFoundError as error:
+        return {"error": f"missing file: {str(error)}"}
+    except Exception as error:
+        return {"error": str(error)}
+
+
+@app.post("/keys/default_test/set")
+def key_default_test_set(payload: DefaultTestBundleRequest):
+    try:
+        return set_default_test_bundle(payload.bundle_id)
+    except Exception as error:
+        return {"error": str(error)}
+
+
 @app.get("/status/{node_id}")
 def status(node_id: int):
+    radio_settings = get_current_radio_settings()
+    camera_settings = get_camera_values()
     return {
         "node_id": node_id,
+        "hostname": format_hostname(node_id),
         "eth0_address": format_eth0_address(node_id),
         "radio_service": get_service_state(get_service_name(node_id)),
         "camera_service": get_service_state(CAMERA_SERVICE_NAME),
+        "key_bundle_id": get_current_bundle_id(),
+        "current_radio": radio_settings,
+        "current_camera": camera_settings,
     }
 
 
@@ -197,6 +339,7 @@ def ipradio_provision(node_id: int, peers: str, video_rx_target: str):
         return {"error": str(error)}
 
     sync_radio_services(node_id)
+    set_node_hostname(node_id)
     configure_eth0(node_id)
     restart_radio(node_id)
 
@@ -204,6 +347,7 @@ def ipradio_provision(node_id: int, peers: str, video_rx_target: str):
         "status": "provisioned",
         "profile": format_profile_name(node_id),
         "node_id": node_id,
+        "hostname": format_hostname(node_id),
         "eth0_address": format_eth0_address(node_id),
         "peers": peer_list,
         "video_rx_target": video_rx_target,
@@ -253,6 +397,7 @@ def apply_node_config(
 
     apply_radio_settings(mcs_index, bandwidth, fec_k, fec_n)
     sync_radio_services(node_id)
+    set_node_hostname(node_id)
     configure_eth0(node_id)
     restart_radio(node_id)
 
@@ -260,6 +405,7 @@ def apply_node_config(
         "status": "applied",
         "profile": format_profile_name(node_id),
         "node_id": node_id,
+        "hostname": format_hostname(node_id),
         "eth0_address": format_eth0_address(node_id),
         "peers": peer_list,
         "video_rx_target": video_rx_target,

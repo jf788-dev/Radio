@@ -260,17 +260,51 @@ UI_HTML = """
                 </div>
                 <div class="status">
                     <div><strong>Node ID</strong><span id="status_node_id" class="status-chip">1</span></div>
+                    <div><strong>Hostname</strong><span id="hostname" class="status-chip">node01</span></div>
                     <div><strong>ETH0 Address</strong><span id="eth0_address" class="status-chip">10.5.0.1/24</span></div>
                     <div><strong>Radio Service</strong><span id="radio_state" class="status-chip">...</span></div>
                     <div><strong>Camera Service</strong><span id="camera_state" class="status-chip">...</span></div>
+                    <div><strong>Key Bundle</strong><span id="key_bundle" class="status-chip">none</span></div>
                 </div>
             </div>
+            <div class="split">
+                <div class="status">
+                    <div><strong>Current MCS</strong><span id="current_mcs" class="status-chip">...</span></div>
+                    <div><strong>Current Bandwidth</strong><span id="current_bw" class="status-chip">...</span></div>
+                    <div><strong>Current FEC</strong><span id="current_fec" class="status-chip">...</span></div>
+                    <div><strong>Video RX Target</strong><span id="current_video_target" class="status-chip">...</span></div>
+                    <div><strong>Peers</strong><span id="current_peers" class="status-chip">...</span></div>
+                </div>
+                <div class="status">
+                    <div><strong>Camera Width</strong><span id="current_cam_width" class="status-chip">...</span></div>
+                    <div><strong>Camera Height</strong><span id="current_cam_height" class="status-chip">...</span></div>
+                    <div><strong>Camera FPS</strong><span id="current_cam_framerate" class="status-chip">...</span></div>
+                    <div><strong>Camera Bitrate</strong><span id="current_cam_bitrate" class="status-chip">...</span></div>
+                    <div><strong>Lens Position</strong><span id="current_cam_lens" class="status-chip">...</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Crypto</div>
+            <h2>Key Bundle</h2>
+            <div class="help">Generate WFB keys on this Pi only when you intentionally want a new network bundle. The normal status view shows fingerprints and bundle metadata, not plaintext keys.</div>
+            <div class="row action-row">
+                <button class="secondary" onclick="refreshKeys()">Refresh Key Status</button>
+                <button onclick="generateKeys()">Generate New Key Bundle</button>
+                <button class="secondary" onclick="installDefaultTestKey()">Create Or Install Test Key</button>
+                <button class="secondary" onclick="exportCurrentKeys()">Export Current Bundle</button>
+            </div>
+            <pre id="key_output">No key status loaded yet.</pre>
         </div>
 
         <div class="card">
             <div class="section-title">Provisioning</div>
             <h2>Provision And Tune Radio</h2>
             <div class="help">Define topology and apply radio tuning in one step. This writes the active node config, updates bandwidth and FEC, selects the boot-persistent radio service, and restarts the link once.</div>
+            <div class="row action-row">
+                <button class="secondary" onclick="loadDefaults()">Set Recommended Defaults</button>
+            </div>
 
             <label>Add Peer</label>
             <div class="row">
@@ -331,20 +365,13 @@ UI_HTML = """
         </div>
 
         <div class="card">
-            <div class="section-title">Camera Actions</div>
-            <h2>Immediate Camera Controls</h2>
-            <div class="help">Use these for quick field checks or to push the detailed camera settings below.</div>
+            <div class="section-title">Camera</div>
+            <h2>Camera Controls</h2>
+            <div class="help">Use start and stop for quick checks. Adjust the camera parameters below, then apply them once.</div>
             <div class="row action-row">
                 <button class="secondary" onclick="cameraStart()">Start Camera</button>
                 <button class="secondary" onclick="cameraStop()">Stop Camera</button>
-                <button onclick="applyCamera()">Apply Camera Settings</button>
             </div>
-        </div>
-
-        <div class="card">
-            <div class="section-title">Camera Tuning</div>
-            <h2>Stream Parameters</h2>
-            <div class="help">These values feed the camera launch script and are applied when you update camera settings.</div>
 
             <div class="provision-grid">
                 <div class="field">
@@ -361,11 +388,14 @@ UI_HTML = """
                 </div>
                 <div class="field">
                     <label>Bitrate</label>
-                    <input type="number" id="cam_bitrate" value="2000000" min="10000">
+                    <input type="number" id="cam_bitrate" value="3000000" min="10000">
                 </div>
                 <div class="field wide">
                     <label>Lens Position</label>
                     <input type="number" id="cam_lens_position" value="0.0" min="0" max="32" step="0.1">
+                </div>
+                <div class="field wide row action-row">
+                    <button onclick="applyCamera()">Apply Camera Settings</button>
                 </div>
             </div>
         </div>
@@ -380,6 +410,7 @@ UI_HTML = """
 
     <script>
         let selectedPeers = [];
+        let defaultConfig = null;
 
         function currentNodeId() {
             return parseInt(document.getElementById("node_id").value);
@@ -399,6 +430,36 @@ UI_HTML = """
             }
         }
 
+        async function loadDefaults() {
+            const output = document.getElementById("output");
+            output.textContent = "Loading defaults...";
+
+            try {
+                const response = await fetch("/defaults");
+                const data = await response.json();
+                defaultConfig = data;
+
+                document.getElementById("mcs").value = data.radio.mcs_index;
+                document.getElementById("bw").value = data.radio.bandwidth;
+                document.getElementById("fec_k").value = data.radio.fec_k;
+                document.getElementById("fec_n").value = data.radio.fec_n;
+                document.getElementById("video_rx_target").value = data.radio.video_rx_target;
+
+                document.getElementById("cam_width").value = data.camera.width;
+                document.getElementById("cam_height").value = data.camera.height;
+                document.getElementById("cam_framerate").value = data.camera.framerate;
+                document.getElementById("cam_bitrate").value = data.camera.bitrate;
+                document.getElementById("cam_lens_position").value = data.camera.lens_position;
+
+                output.textContent = JSON.stringify({
+                    status: "defaults_loaded",
+                    defaults: data,
+                }, null, 2);
+            } catch (err) {
+                output.textContent = "Error: " + err;
+            }
+        }
+
         async function refreshStatus() {
             const nodeId = currentNodeId();
             document.getElementById("status_node_id").textContent = nodeId;
@@ -406,14 +467,86 @@ UI_HTML = """
             try {
                 const response = await fetch("/status/" + nodeId);
                 const data = await response.json();
+                document.getElementById("hostname").textContent = data.hostname || "unknown";
                 document.getElementById("eth0_address").textContent = data.eth0_address;
                 document.getElementById("radio_state").textContent = data.radio_service;
                 document.getElementById("camera_state").textContent = data.camera_service;
+                document.getElementById("key_bundle").textContent = data.key_bundle_id || "none";
+                document.getElementById("current_mcs").textContent = data.current_radio.mcs_index || "unknown";
+                document.getElementById("current_bw").textContent = data.current_radio.bandwidth || "unknown";
+                document.getElementById("current_fec").textContent = (data.current_radio.fec_k && data.current_radio.fec_n)
+                    ? data.current_radio.fec_k + "/" + data.current_radio.fec_n
+                    : "unknown";
+                document.getElementById("current_video_target").textContent = data.current_radio.video_rx_target || "unknown";
+                document.getElementById("current_peers").textContent = data.current_radio.peers && data.current_radio.peers.length
+                    ? data.current_radio.peers.join(",")
+                    : "none";
+                document.getElementById("current_cam_width").textContent = data.current_camera.width || "unknown";
+                document.getElementById("current_cam_height").textContent = data.current_camera.height || "unknown";
+                document.getElementById("current_cam_framerate").textContent = data.current_camera.framerate || "unknown";
+                document.getElementById("current_cam_bitrate").textContent = data.current_camera.bitrate || "unknown";
+                document.getElementById("current_cam_lens").textContent = data.current_camera.lens_position || "unknown";
             } catch (err) {
+                document.getElementById("hostname").textContent = "error";
                 document.getElementById("eth0_address").textContent = "error";
                 document.getElementById("radio_state").textContent = "error";
                 document.getElementById("camera_state").textContent = "error";
+                document.getElementById("key_bundle").textContent = "error";
+                document.getElementById("current_mcs").textContent = "error";
+                document.getElementById("current_bw").textContent = "error";
+                document.getElementById("current_fec").textContent = "error";
+                document.getElementById("current_video_target").textContent = "error";
+                document.getElementById("current_peers").textContent = "error";
+                document.getElementById("current_cam_width").textContent = "error";
+                document.getElementById("current_cam_height").textContent = "error";
+                document.getElementById("current_cam_framerate").textContent = "error";
+                document.getElementById("current_cam_bitrate").textContent = "error";
+                document.getElementById("current_cam_lens").textContent = "error";
             }
+        }
+
+        async function refreshKeys() {
+            const output = document.getElementById("key_output");
+            output.textContent = "Loading key status...";
+
+            try {
+                const response = await fetch("/keys/status");
+                const data = await response.json();
+                output.textContent = JSON.stringify(data, null, 2);
+                refreshStatus();
+            } catch (err) {
+                output.textContent = "Error: " + err;
+            }
+        }
+
+        function generateKeys() {
+            const confirmed = window.confirm(
+                "Generate a new WFB key bundle on this Pi? This replaces the active /etc/gs.key and /etc/drone.key files and can break connectivity until other radios receive the same bundle."
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            apiCall("/keys/generate");
+            setTimeout(refreshKeys, 300);
+        }
+
+        function exportCurrentKeys() {
+            apiCall("/keys/export/current");
+        }
+
+        function installDefaultTestKey() {
+            const confirmed = window.confirm(
+                "Create or install the local test key bundle on this Pi? If the named test bundle does not exist yet, this Pi will generate it locally. If it already exists here, it will be reinstalled as the active key bundle."
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            apiCall("/keys/default_test/ensure");
+            setTimeout(refreshKeys, 300);
         }
 
         function setMcs() {
@@ -525,7 +658,9 @@ UI_HTML = """
         });
 
         renderPeers();
+        loadDefaults();
         refreshStatus();
+        refreshKeys();
         setInterval(refreshStatus, 3000);
     </script>
 </body>

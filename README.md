@@ -18,15 +18,16 @@ Host-specific runtime files such as `/etc/wifibroadcast.cfg`, `/etc/default/wfb-
 Central place for shared configuration.
 
 - Defines node ID bounds.
-- Defines shared node naming helpers such as `node_03` and `wifibroadcast@node_03`.
+- Defines shared node naming helpers such as `node03` and `wifibroadcast@node03`.
 - Defines file paths for the live WFB config, camera config, and IPRadio provisioning files.
 - Defines shared port values for the WFB API, WFB stats, and MQTT.
+- Defines the recommended default radio and camera settings used by the UI and API.
 - Keeps the collector and provisioning code aligned on the same port values.
 
 ### `radio_service.py`
 Radio control and radio config mutation helpers.
 
-- Builds the `wifibroadcast@node_XX` service name for a node.
+- Builds the `wifibroadcast@nodeXX` service name for a node.
 - Updates values in the `[base]` section of `/etc/wifibroadcast.cfg`.
 - Updates FEC values in the `[tunnel]` section of `/etc/wifibroadcast.cfg`.
 - Restarts the radio service after config changes.
@@ -48,7 +49,7 @@ Provisioning logic for node-specific IPRadio / WFB configuration.
 
 - Generates tunnel interface names and addresses.
 - Builds a node-specific config block based on node ID, peers, and video target.
-- Uses the shared `node_XX` naming convention for generated profiles and tunnel sections.
+- Uses the shared `nodeXX` naming convention for generated profiles and tunnel sections.
 - Injects shared `api_port` and `stats_port` values from `app_config.py`.
 - Writes:
   - `/etc/ipradio/node.json`
@@ -56,6 +57,15 @@ Provisioning logic for node-specific IPRadio / WFB configuration.
   - `/etc/wifibroadcast.cfg` from `base.cfg + node.cfg`
 
 This file owns config generation for test provisioning workflows.
+
+### `key_service.py`
+Key bundle lifecycle helpers for WFB encryption material.
+
+- Runs `wfb_keygen` in a temporary directory so bundle generation does not clobber live `/etc/*.key` files during creation
+- Stores generated or imported bundles under `/etc/ipradio/keys/<bundle_id>/`
+- Installs active keys to `/etc/gs.key` and `/etc/drone.key`
+- Tracks the active bundle in `/etc/ipradio/current_key.json`
+- Returns SHA-256 fingerprints for normal status calls and only returns plaintext key material from explicit export endpoints
 
 ### `ui.py`
 Holds the browser UI as a static HTML string.
@@ -109,13 +119,14 @@ Systemd unit for running the camera RTP feed on the drone node.
 - Assumes `/etc/default/wfb-camera` exists on the host
 
 ### `systemd/wfb-eth0.service`
-Systemd unit for maintaining the deterministic management address on `eth0`.
+Systemd unit for maintaining the management addresses on `eth0`.
 
 - Runs `scripts/wfb-eth0.sh`
 - Reads `/etc/ipradio/node.json`
 - Applies `10.5.0.<node_id>/24` to `eth0`
-- Uses `ip address replace` for the deterministic address without flushing unrelated `eth0` addresses
-- Starts on boot and can be restarted after provisioning
+- Applies the fixed fallback management address `169.254.100.1/24` to `eth0`
+- Uses `ip address replace` so both managed addresses stay present without flushing unrelated `eth0` addresses
+- Starts on boot and restarts automatically if the keeper exits
 
 ### `scripts/wfb-camera.sh`
 Repo-managed camera launch script used by `wfb-camera.service`.
@@ -129,7 +140,8 @@ Repo-managed helper script used by `wfb-eth0.service`.
 
 - Reads the provisioned node ID from `/etc/ipradio/node.json`
 - Adds the deterministic `10.5.0.<node_id>/24` address to `eth0`
-- Leaves other `eth0` addresses in place
+- Adds the fixed fallback management address `169.254.100.1/24` to `eth0`
+- Monitors `eth0` and reapplies both addresses if the interface changes
 
 ## Provisioning Process
 
@@ -155,7 +167,7 @@ That route:
 
 The generated config includes:
 
-- the profile name such as `node_03`
+- the profile name such as `node03`
 - video TX and RX stream definitions
 - tunnel stream definitions for each peer
 - tunnel interface names and `/30` addresses
@@ -163,11 +175,38 @@ The generated config includes:
 
 After provisioning, the app:
 
-- enables the selected radio systemd instance such as `wifibroadcast@node_03`
-- disables other `wifibroadcast@node_XX` instances
+- enables the selected radio systemd instance such as `wifibroadcast@node03`
+- disables other `wifibroadcast@nodeXX` instances
 - disables the legacy `wifibroadcast@gs` instance
 - enables and restarts `wfb-eth0.service` so the deterministic `eth0` address is applied persistently
 - restarts the selected radio service
+
+## Key Workflow
+
+- Generate a new key bundle on a Pi through `/keys/generate`
+- Ensure a named reusable local test bundle through `/keys/default_test/ensure`
+- The Pi runs `wfb_keygen` locally in a temporary directory
+- The generated `gs.key` and `drone.key` files are stored under `/etc/ipradio/keys/<bundle_id>/`
+- The active bundle is installed to:
+  - `/etc/gs.key`
+  - `/etc/drone.key`
+- The normal status route `/keys/status` reports fingerprints and metadata, not plaintext key contents
+- The export routes `/keys/export/current` and `/keys/export/{bundle_id}` return base64-encoded key material for EUD pickup and redistribution
+- The import route `/keys/import` accepts a stored bundle from an EUD and can install it immediately
+
+This keeps key generation on the radio/Pi while still allowing an external EUD to collect and redistribute the active bundle to other radios.
+
+## Recommended Defaults
+
+The shared defaults exposed by `/defaults` and loaded by the UI are:
+
+- bandwidth: `20`
+- mcs_index: `1`
+- fec_k / fec_n: `8 / 12`
+- video_rx_target: `127.0.0.1:5600`
+- camera profile: `1280x720 @ 30 fps` with `3000000` bitrate and `0.0` lens position
+
+The named default test key bundle is `test-default`. If it does not exist on a Pi yet, `/keys/default_test/ensure` generates it locally and installs it.
 
 ## Data Flows
 
@@ -212,9 +251,9 @@ After provisioning, the app:
 ### 5. Naming Through the Stack
 
 - Control and provisioning use numeric `node_id`, for example `3`.
-- Telemetry topics use canonical `node_name`, for example `node_03`.
+- Telemetry topics use canonical `node_name`, for example `node03`.
 - Provisioned WFB profiles also use `node_name`.
-- Radio systemd services derive from `node_name`, for example `wifibroadcast@node_03`.
+- Radio systemd services derive from `node_name`, for example `wifibroadcast@node03`.
 
 ## Intended Split
 
@@ -237,9 +276,9 @@ The repo now uses two related identifiers:
 Examples:
 
 - `node_id = 3`
-- `node_name = "node_03"`
-- `profile = "node_03"`
-- `service_name = "wifibroadcast@node_03"`
+- `node_name = "node03"`
+- `profile = "node03"`
+- `service_name = "wifibroadcast@node03"`
 
 For non-radio publishers such as GPS, the canonical telemetry identity is a descriptive `node_name`, currently `ground_station`.
 
@@ -267,67 +306,34 @@ docker compose up -d
 
 ## Raspberry Pi Deployment
 
-Expected deployment layout:
+Expected deployment layout after bootstrap:
 
-- app checkout at `/opt/visr`
+- app installed at `/opt/visr`
 - virtual environment at `/opt/visr/venv`
 - FastAPI served by systemd using `systemd/wfb-api.service`
 - WFB collector served by systemd using `systemd/wfb-collect.service`
-- Camera feed served by systemd using `systemd/wfb-camera.service`
+- Camera feed available through `systemd/wfb-camera.service`
 - Deterministic `eth0` address managed by `systemd/wfb-eth0.service`
 
-Suggested install sequence:
+Bootstrap from a staged checkout:
 
 ```bash
-sudo rm -rf /opt/visr
-sudo mkdir -p /opt/visr
-sudo chown pi:pi /opt/visr
-git clone <your-private-repo-url> /opt/visr
-cd /opt/visr
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-chmod +x scripts/wfb-camera.sh
-chmod +x scripts/wfb-eth0.sh
+git clone <your-private-repo-url> ~/wfb_collect
+cd ~/wfb_collect
+sudo ./scripts/install-visr.sh
 ```
 
-Install the API service:
+The bootstrap script:
 
-```bash
-sudo cp systemd/wfb-api.service /etc/systemd/system/wfb-api.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now wfb-api.service
-```
-
-Install the WFB collector service:
-
-```bash
-sudo cp systemd/wfb-collect.service /etc/systemd/system/wfb-collect.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now wfb-collect.service
-```
-
-Install the camera service:
-
-```bash
-sudo cp systemd/wfb-camera.service /etc/systemd/system/wfb-camera.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now wfb-camera.service
-```
-
-Install the deterministic `eth0` service:
-
-```bash
-sudo cp systemd/wfb-eth0.service /etc/systemd/system/wfb-eth0.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now wfb-eth0.service
-```
-
-Ensure the camera script is executable:
-
-```bash
-chmod +x scripts/wfb-camera.sh
-```
+- copies the staged checkout into `/opt/visr`
+- creates `/opt/visr/venv` if it does not exist yet
+- installs Python dependencies from `requirements.txt`
+- installs the systemd unit files
+- enables and starts:
+  - `wfb-api.service`
+  - `wfb-collect.service`
+  - `wfb-eth0.service`
+- installs but does not enable `wfb-camera.service`
 
 Check service status:
 
