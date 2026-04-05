@@ -9,6 +9,18 @@ WFB_KEYRING="/usr/share/keyrings/wfb-ng.gpg"
 WFB_LIST="/etc/apt/sources.list.d/wfb-ng.list"
 NETWORKMANAGER_CONF="/etc/NetworkManager/NetworkManager.conf"
 DHCPCD_CONF="/etc/dhcpcd.conf"
+TOTAL_STEPS=8
+STEP=0
+
+print_step() {
+  STEP=$((STEP + 1))
+  echo
+  echo "[${STEP}/${TOTAL_STEPS}] $1"
+}
+
+print_info() {
+  echo "    $1"
+}
 
 require_root() {
   if [ "$(id -u)" -ne 0 ]; then
@@ -18,15 +30,34 @@ require_root() {
 }
 
 install_docker_if_missing() {
+  print_step "Installing Docker and Docker Compose"
+
   if command -v docker >/dev/null 2>&1; then
+    print_info "Docker already installed"
+  else
+    curl -fsSL https://get.docker.com | sh
+    usermod -aG docker "$SERVICE_USER" || true
+  fi
+
+  if docker compose version >/dev/null 2>&1; then
+    print_info "Docker Compose plugin available"
     return
   fi
 
-  curl -fsSL https://get.docker.com | sh
-  usermod -aG docker "$SERVICE_USER" || true
+  apt install -y docker-compose-plugin || true
+
+  if docker compose version >/dev/null 2>&1; then
+    print_info "Docker Compose plugin installed"
+    return
+  fi
+
+  echo "Docker is installed but 'docker compose' is not available." >&2
+  exit 1
 }
 
 configure_wfb_repo() {
+  print_step "Configuring WFB-ng apt repository"
+
   if [ ! -f "$WFB_KEYRING" ]; then
     curl -s https://apt.wfb-ng.org/public.asc | gpg --dearmor --yes -o "$WFB_KEYRING"
   fi
@@ -37,6 +68,8 @@ EOF
 }
 
 install_rtl8812au() {
+  print_step "Installing RTL8812AU DKMS driver"
+
   if [ ! -d "$RTL8812AU_DIR/.git" ]; then
     rm -rf "$RTL8812AU_DIR"
     git clone -b "$RTL8812AU_BRANCH" "$RTL8812AU_REPO" "$RTL8812AU_DIR"
@@ -50,6 +83,7 @@ install_rtl8812au() {
 }
 
 configure_network_manager() {
+  print_step "Configuring NetworkManager for wlan1"
   install -d -m 755 /etc/NetworkManager
   cat >"$NETWORKMANAGER_CONF" <<'EOF'
 [main]
@@ -64,6 +98,7 @@ EOF
 }
 
 configure_dhcpcd() {
+  print_step "Configuring dhcpcd for wlan1"
   if [ -f "$DHCPCD_CONF" ]; then
     if ! grep -q '^denyinterfaces wlan1$' "$DHCPCD_CONF"; then
       printf '\ndenyinterfaces wlan1\n' >>"$DHCPCD_CONF"
@@ -72,6 +107,7 @@ configure_dhcpcd() {
 }
 
 restart_network_services() {
+  print_step "Restarting network services and unblocking RF"
   systemctl daemon-reload
   systemctl restart NetworkManager 2>/dev/null || true
   systemctl restart dhcpcd 2>/dev/null || true
@@ -80,11 +116,13 @@ restart_network_services() {
 
 require_root
 
+print_step "Updating host packages"
 apt update
 apt upgrade -y
 apt full-upgrade -y
 apt autoremove -y
 
+print_step "Installing host package dependencies"
 apt install -y \
   curl \
   dkms \
@@ -105,6 +143,7 @@ install_docker_if_missing
 install_rtl8812au
 configure_wfb_repo
 
+print_step "Installing WFB-ng"
 apt update
 apt install -y wfb-ng
 

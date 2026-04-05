@@ -338,11 +338,15 @@ This full bootstrap script:
 
 - updates the host packages
 - installs Docker if missing
+- verifies `docker compose` is available
 - installs the RTL8812AU DKMS driver from `svpcom/rtl8812au`
 - adds the `wfb-ng` apt repository and installs `wfb-ng`
 - installs camera and media packages
 - configures `NetworkManager` and `dhcpcd` so `wlan1` is unmanaged
 - installs the VISR app and systemd units
+
+Docker and Docker Compose are needed for the observability stack in `docker-compose.yaml`.
+The core radio control app can run without that stack, but Grafana, Mosquitto, Postgres, and related services will not come up without Docker and `docker compose`.
 
 App-only bootstrap:
 

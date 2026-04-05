@@ -9,6 +9,14 @@ SOURCE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IPRADIO_DIR="/etc/ipradio"
 IPRADIO_BASE_CFG="${IPRADIO_DIR}/base.cfg"
 LIVE_WFB_CFG="/etc/wifibroadcast.cfg"
+TOTAL_STEPS=5
+STEP=0
+
+print_step() {
+  STEP=$((STEP + 1))
+  echo
+  echo "[${STEP}/${TOTAL_STEPS}] $1"
+}
 
 require_root() {
   if [ "$(id -u)" -ne 0 ]; then
@@ -69,14 +77,23 @@ prepare_runtime_config() {
 
 require_root
 
+print_step "Copying app into place"
 prepare_app_root
+
+print_step "Preparing Python virtual environment"
 prepare_venv
+
+print_step "Preparing runtime config"
 prepare_runtime_config
 
+print_step "Setting script permissions"
 chmod 755 "${APP_ROOT}/scripts/wfb-camera.sh"
 chmod 755 "${APP_ROOT}/scripts/wfb-eth0.sh"
+chmod 755 "${APP_ROOT}/scripts/build-radio-host.sh"
+chmod 755 "${APP_ROOT}/scripts/bootstrap-radio.sh"
 chmod 755 "${APP_ROOT}/scripts/install-visr.sh"
 
+print_step "Installing and enabling VISR services"
 install_unit "${APP_ROOT}/systemd/wfb-api.service" "wfb-api.service"
 install_unit "${APP_ROOT}/systemd/wfb-collect.service" "wfb-collect.service"
 install_unit "${APP_ROOT}/systemd/wfb-camera.service" "wfb-camera.service"
