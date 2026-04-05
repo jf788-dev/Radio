@@ -145,7 +145,12 @@ The generated config includes:
 - tunnel interface names and `/30` addresses
 - shared `stats_port` and `api_port` values from `app_config.py`
 
-After provisioning, the matching radio service is restarted using the derived systemd service name such as `wifibroadcast@node_03`.
+After provisioning, the app:
+
+- enables the selected radio systemd instance such as `wifibroadcast@node_03`
+- disables other `wifibroadcast@node_XX` instances
+- disables the legacy `wifibroadcast@gs` instance
+- restarts the selected radio service
 
 ## Data Flows
 

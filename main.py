@@ -8,6 +8,7 @@ from radio_service import (
     get_service_name,
     get_service_state,
     restart_radio,
+    sync_radio_services,
     update_base_value,
     update_tunnel_value,
 )
@@ -151,6 +152,7 @@ def ipradio_provision(node_id: int, peers: str, video_rx_target: str):
     except Exception as error:
         return {"error": str(error)}
 
+    sync_radio_services(node_id)
     restart_radio(node_id)
 
     return {

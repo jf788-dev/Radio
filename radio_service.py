@@ -1,6 +1,6 @@
 import subprocess
 
-from app_config import CONFIG_PATH, format_service_name
+from app_config import CONFIG_PATH, NODE_ID_MAX, NODE_ID_MIN, format_service_name
 
 
 def get_service_name(node_id: int) -> str:
@@ -68,6 +68,21 @@ def restart_radio(node_id: int):
     service_name = get_service_name(node_id)
     subprocess.run(["/usr/bin/sudo", "/usr/sbin/rfkill", "unblock", "all"])
     subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "restart", service_name])
+
+
+def sync_radio_services(node_id: int):
+    target_service = get_service_name(node_id)
+
+    for candidate_id in range(NODE_ID_MIN, NODE_ID_MAX + 1):
+        service_name = get_service_name(candidate_id)
+        if service_name == target_service:
+            continue
+
+        subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "disable", "--now", service_name])
+
+    # Disable the legacy ground-station profile if it exists so it doesn't recreate old interfaces at boot.
+    subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "disable", "--now", "wifibroadcast@gs"])
+    subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "enable", "--now", target_service])
 
 
 def get_service_state(service_name: str) -> str:
