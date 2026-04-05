@@ -8,6 +8,8 @@ SERVICE_USER="${SERVICE_USER:-pi}"
 SOURCE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IPRADIO_DIR="/etc/ipradio"
 IPRADIO_BASE_CFG="${IPRADIO_DIR}/base.cfg"
+IPRADIO_CURRENT_KEY_PATH="${IPRADIO_DIR}/current_key.json"
+IPRADIO_KEY_INDEX_PATH="${IPRADIO_DIR}/keys/index.json"
 LIVE_WFB_CFG="/etc/wifibroadcast.cfg"
 LIVE_GS_KEY="/etc/gs.key"
 LIVE_DRONE_KEY="/etc/drone.key"
@@ -36,12 +38,14 @@ install_unit() {
 
 enable_service() {
   local service_name="$1"
-  systemctl enable --now "$service_name"
+  echo "    enabling ${service_name}"
+  systemctl enable --now "$service_name" >/dev/null 2>&1
 }
 
 disable_service() {
   local service_name="$1"
-  systemctl disable --now "$service_name" 2>/dev/null || true
+  echo "    disabling ${service_name}"
+  systemctl disable --now "$service_name" >/dev/null 2>&1 || true
 }
 
 prepare_app_root() {

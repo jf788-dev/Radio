@@ -336,6 +336,8 @@ Expected deployment layout after bootstrap:
 Full Pi bootstrap from a staged checkout:
 
 ```bash
+sudo apt update
+sudo apt install -y git
 git clone <your-private-repo-url> ~/wfb_collect
 cd ~/wfb_collect
 sudo ./scripts/bootstrap-radio.sh
@@ -351,7 +353,7 @@ This full bootstrap script:
 - installs camera and media packages
 - configures `NetworkManager` and `dhcpcd` so `wlan1` is unmanaged
 - installs the VISR app and systemd units
-- resumes itself automatically after the required reboot to finish the app install
+- reboots once at the very end so the Wi-Fi driver, Docker stack, and services start cleanly
 
 Docker and Docker Compose are needed for the observability stack in `docker-compose.yaml`.
 The core radio control app can run without that stack, but Grafana, Mosquitto, Postgres, and related services will not come up without Docker and `docker compose`.

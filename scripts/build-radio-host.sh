@@ -11,7 +11,7 @@ NETWORKMANAGER_CONF="/etc/NetworkManager/NetworkManager.conf"
 DHCPCD_CONF="/etc/dhcpcd.conf"
 TOTAL_STEPS=8
 STEP=0
-REBOOT_ON_COMPLETE="${REBOOT_ON_COMPLETE:-1}"
+REBOOT_ON_COMPLETE="${REBOOT_ON_COMPLETE:-0}"
 
 print_step() {
   STEP=$((STEP + 1))
@@ -158,5 +158,5 @@ if [ "$REBOOT_ON_COMPLETE" = "1" ]; then
   sleep 3
   reboot
 else
-  echo "Radio host build complete. Reboot skipped because REBOOT_ON_COMPLETE=0."
+  echo "Radio host build complete. Reboot deferred."
 fi
