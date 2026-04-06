@@ -125,8 +125,10 @@ apt autoremove -y
 
 print_step "Installing host package dependencies"
 apt install -y \
+  babeld \
   curl \
   dkms \
+  dnsmasq-base \
   ffmpeg \
   git \
   gnupg \
@@ -147,6 +149,7 @@ configure_wfb_repo
 print_step "Installing WFB-ng"
 apt update
 apt install -y wfb-ng
+systemctl disable --now babeld 2>/dev/null || true
 
 configure_network_manager
 configure_dhcpcd

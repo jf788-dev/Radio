@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from app_config import (
+    BABEL_SERVICE_NAME,
     CAMERA_SERVICE_NAME,
     DEFAULT_BANDWIDTH,
     DEFAULT_CAMERA_BITRATE,
@@ -15,10 +16,14 @@ from app_config import (
     DEFAULT_MCS_INDEX,
     DEFAULT_TEST_KEY_BUNDLE_ID,
     DEFAULT_VIDEO_RX_TARGET,
+    DHCP_SERVICE_NAME,
     NODE_ID_MAX,
     NODE_ID_MIN,
     format_eth0_address,
+    format_eth0_subnet,
+    format_fallback_eth0_address,
     format_hostname,
+    format_loopback_address,
     format_profile_name,
 )
 from camera_service import get_camera_values, restart_camera, set_camera_values, start_camera, stop_camera
@@ -38,6 +43,7 @@ from radio_service import (
     get_current_radio_settings,
     get_service_name,
     get_service_state,
+    configure_routed_access,
     configure_eth0,
     restart_radio,
     sync_radio_services,
@@ -205,7 +211,12 @@ def status(node_id: int):
         "node_id": node_id,
         "hostname": format_hostname(node_id),
         "eth0_address": format_eth0_address(node_id),
+        "eth0_subnet": format_eth0_subnet(node_id),
+        "fallback_address": format_fallback_eth0_address(),
+        "loopback_address": format_loopback_address(node_id),
         "radio_service": get_service_state(get_service_name(node_id)),
+        "dhcp_service": get_service_state(DHCP_SERVICE_NAME),
+        "babel_service": get_service_state(BABEL_SERVICE_NAME),
         "camera_service": get_service_state(CAMERA_SERVICE_NAME),
         "key_bundle_id": get_current_bundle_id(),
         "current_radio": radio_settings,
@@ -342,6 +353,7 @@ def ipradio_provision(node_id: int, peers: str, video_rx_target: str):
     set_node_hostname(node_id)
     configure_eth0(node_id)
     restart_radio(node_id)
+    configure_routed_access(node_id)
 
     return {
         "status": "provisioned",
@@ -349,6 +361,9 @@ def ipradio_provision(node_id: int, peers: str, video_rx_target: str):
         "node_id": node_id,
         "hostname": format_hostname(node_id),
         "eth0_address": format_eth0_address(node_id),
+        "eth0_subnet": format_eth0_subnet(node_id),
+        "fallback_address": format_fallback_eth0_address(),
+        "loopback_address": format_loopback_address(node_id),
         "peers": peer_list,
         "video_rx_target": video_rx_target,
         "service_name": get_service_name(node_id),
@@ -400,6 +415,7 @@ def apply_node_config(
     set_node_hostname(node_id)
     configure_eth0(node_id)
     restart_radio(node_id)
+    configure_routed_access(node_id)
 
     return {
         "status": "applied",
@@ -407,6 +423,9 @@ def apply_node_config(
         "node_id": node_id,
         "hostname": format_hostname(node_id),
         "eth0_address": format_eth0_address(node_id),
+        "eth0_subnet": format_eth0_subnet(node_id),
+        "fallback_address": format_fallback_eth0_address(),
+        "loopback_address": format_loopback_address(node_id),
         "peers": peer_list,
         "video_rx_target": video_rx_target,
         "mcs_index": mcs_index,

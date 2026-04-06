@@ -40,6 +40,7 @@ Camera configuration and service control helpers.
 
 - Updates `/etc/default/wfb-camera`.
 - Writes `WIDTH`, `HEIGHT`, `FRAMERATE`, `BITRATE`, and `LENS_POSITION`.
+- Creates `/etc/default/wfb-camera` with safe defaults if it is missing.
 - Starts, stops, and restarts the `wfb-camera` service.
 
 This keeps the camera-specific logic separate from the radio and provisioning code.
@@ -123,22 +124,40 @@ Systemd unit for running the camera RTP feed on the drone node.
 - Runs `scripts/wfb-camera.sh`
 - Restarts automatically if the camera feed exits
 - Assumes the app is deployed at `/opt/visr`
-- Assumes `/etc/default/wfb-camera` exists on the host
+- Uses repo-provided camera defaults on a fresh install if `/etc/default/wfb-camera` is missing
 
 ### `systemd/wfb-eth0.service`
-Systemd unit for maintaining the management addresses on `eth0`.
+Systemd unit for maintaining the node access addresses on `eth0`.
 
 - Runs `scripts/wfb-eth0.sh`
 - Reads `/etc/ipradio/node.json`
-- Applies `10.5.0.<node_id>/24` to `eth0`
-- Applies the fixed fallback management address `169.254.100.1/24` to `eth0`
-- Uses `ip address replace` so both managed addresses stay present without flushing unrelated `eth0` addresses
+- Always applies the fixed fallback management address `169.254.100.1/24` to `eth0`
+- Applies the node-local EUD gateway `172.22.<node_id>.1/24` to `eth0` after provisioning
+- Applies the stable loopback identity `10.5.0.<node_id>/32` to `lo` after provisioning
+- Removes legacy `10.5.0.x` addresses from `eth0` so the user LAN and loopback space do not conflict
 - Starts on boot and restarts automatically if the keeper exits
+
+### `systemd/wfb-dhcp.service`
+Systemd unit for running the node-local DHCP service.
+
+- Runs `scripts/wfb-dhcp.sh`
+- Starts only after the node has been provisioned
+- Serves DHCP on `eth0` only
+- Keeps the fallback `169.254.100.1/24` as manual recovery only and does not provide DHCP on that subnet
+
+### `systemd/wfb-babel.service`
+Systemd unit for running Babel over the WFB tunnel interfaces.
+
+- Runs `scripts/wfb-babel.sh`
+- Reads `/etc/ipradio/node.json`
+- Advertises the node-local `eth0` subnet and stable loopback `/32`
+- Peers on the generated WFB tunnel interfaces only
+- Stays disabled until a node is provisioned
 
 ### `scripts/wfb-camera.sh`
 Repo-managed camera launch script used by `wfb-camera.service`.
 
-- Sources `/etc/default/wfb-camera`
+- Uses safe built-in defaults, then sources `/etc/default/wfb-camera` if present
 - Launches `rpicam-vid`
 - Streams H.264 video to `udp://127.0.0.1:5602`
 
@@ -146,9 +165,26 @@ Repo-managed camera launch script used by `wfb-camera.service`.
 Repo-managed helper script used by `wfb-eth0.service`.
 
 - Reads the provisioned node ID from `/etc/ipradio/node.json`
-- Adds the deterministic `10.5.0.<node_id>/24` address to `eth0`
-- Adds the fixed fallback management address `169.254.100.1/24` to `eth0`
-- Monitors `eth0` and reapplies both addresses if the interface changes
+- Always adds the fixed fallback management address `169.254.100.1/24` to `eth0`
+- Adds the deterministic node-local gateway `172.22.<node_id>.1/24` to `eth0` when provisioned
+- Adds the stable loopback `10.5.0.<node_id>/32` to `lo` when provisioned
+- Enables IPv4 forwarding and routing-friendly sysctls
+- Monitors interface changes and reapplies the managed addresses
+
+### `scripts/wfb-dhcp.sh`
+Repo-managed DHCP launch script used by `wfb-dhcp.service`.
+
+- Refuses to start before a node has been provisioned
+- Generates a dnsmasq config from `/etc/ipradio/node.json`
+- Serves only the node-local `172.22.<node_id>.0/24` subnet on `eth0`
+
+### `scripts/wfb-babel.sh`
+Repo-managed Babel launch script used by `wfb-babel.service`.
+
+- Refuses to start before a node has been provisioned
+- Generates a babeld config from `/etc/ipradio/node.json`
+- Runs Babel on the WFB point-to-point tunnel interfaces only
+- Redistributes the node-local `eth0` subnet and the node loopback `/32`
 
 ## Provisioning Process
 
@@ -166,7 +202,7 @@ That route:
 `write_ipradio_node()` produces three outputs:
 
 - `/etc/ipradio/node.json`
-  Persisted input data for the selected node, peers, and video target.
+  Persisted node metadata for the selected node, peers, video target, local EUD subnet, DHCP pool, fallback address, and loopback identity.
 - `/etc/ipradio/node.cfg`
   Generated node-specific config derived from the selected topology.
 - `/etc/wifibroadcast.cfg`
@@ -185,8 +221,10 @@ After provisioning, the app:
 - enables the selected radio systemd instance such as `wifibroadcast@node03`
 - disables other `wifibroadcast@nodeXX` instances
 - disables the legacy `wifibroadcast@gs` instance
-- enables and restarts `wfb-eth0.service` so the deterministic `eth0` address is applied persistently
+- enables and restarts `wfb-eth0.service` so fallback, node-local gateway, and loopback addresses are applied persistently
 - restarts the selected radio service
+- enables and restarts `wfb-dhcp.service` so `eth0` serves the node-local EUD subnet
+- enables and restarts `wfb-babel.service` when peer tunnels are configured
 
 ## Key Workflow
 

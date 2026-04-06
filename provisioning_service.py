@@ -2,12 +2,21 @@ import json
 
 from app_config import (
     IPRADIO_BASE_PATH,
+    format_dhcp_range_end,
+    format_dhcp_range_start,
+    format_eth0_gateway,
+    format_eth0_gateway_ip,
+    format_eth0_network,
+    format_eth0_subnet,
+    format_fallback_eth0_address,
     IPRADIO_FINAL_CFG_PATH,
     IPRADIO_NODE_CFG_PATH,
     IPRADIO_NODE_PATH,
     WFB_API_PORT,
     WFB_STATS_PORT,
     format_profile_name,
+    format_loopback_address,
+    format_loopback_ip,
 )
 
 
@@ -98,6 +107,15 @@ def write_ipradio_node(node_id: int, peers: list[int], video_rx_target: str):
         "node_id": node_id,
         "links": peers,
         "video_rx_target": video_rx_target,
+        "eth0_gateway": format_eth0_gateway(node_id),
+        "eth0_gateway_ip": format_eth0_gateway_ip(node_id),
+        "eth0_network": format_eth0_network(node_id),
+        "eth0_subnet": format_eth0_subnet(node_id),
+        "fallback_address": format_fallback_eth0_address(),
+        "dhcp_range_start": format_dhcp_range_start(node_id),
+        "dhcp_range_end": format_dhcp_range_end(node_id),
+        "loopback_address": format_loopback_address(node_id),
+        "loopback_ip": format_loopback_ip(node_id),
     }
 
     IPRADIO_NODE_PATH.parent.mkdir(parents=True, exist_ok=True)

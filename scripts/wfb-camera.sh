@@ -1,5 +1,17 @@
 #!/bin/bash
-source /etc/default/wfb-camera
+set -eu
+
+WIDTH="${WIDTH:-1280}"
+HEIGHT="${HEIGHT:-720}"
+FRAMERATE="${FRAMERATE:-30}"
+BITRATE="${BITRATE:-3000000}"
+LENS_POSITION="${LENS_POSITION:-0.0}"
+
+if [ -f /etc/default/wfb-camera ]; then
+  # Allow host overrides while keeping sane startup defaults on a fresh install.
+  # shellcheck disable=SC1091
+  source /etc/default/wfb-camera
+fi
 
 exec /usr/bin/rpicam-vid -t 0 -n \
   --width "$WIDTH" --height "$HEIGHT" \

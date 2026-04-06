@@ -261,8 +261,13 @@ UI_HTML = """
                 <div class="status">
                     <div><strong>Node ID</strong><span id="status_node_id" class="status-chip">1</span></div>
                     <div><strong>Hostname</strong><span id="hostname" class="status-chip">node01</span></div>
-                    <div><strong>ETH0 Address</strong><span id="eth0_address" class="status-chip">10.5.0.1/24</span></div>
+                    <div><strong>ETH0 Gateway</strong><span id="eth0_address" class="status-chip">172.22.1.1/24</span></div>
+                    <div><strong>ETH0 Subnet</strong><span id="eth0_subnet" class="status-chip">172.22.1.0/24</span></div>
+                    <div><strong>Fallback Address</strong><span id="fallback_address" class="status-chip">169.254.100.1/24</span></div>
+                    <div><strong>Loopback</strong><span id="loopback_address" class="status-chip">10.5.0.1/32</span></div>
                     <div><strong>Radio Service</strong><span id="radio_state" class="status-chip">...</span></div>
+                    <div><strong>DHCP Service</strong><span id="dhcp_state" class="status-chip">...</span></div>
+                    <div><strong>Babel Service</strong><span id="babel_state" class="status-chip">...</span></div>
                     <div><strong>Camera Service</strong><span id="camera_state" class="status-chip">...</span></div>
                     <div><strong>Key Bundle</strong><span id="key_bundle" class="status-chip">none</span></div>
                 </div>
@@ -469,7 +474,12 @@ UI_HTML = """
                 const data = await response.json();
                 document.getElementById("hostname").textContent = data.hostname || "unknown";
                 document.getElementById("eth0_address").textContent = data.eth0_address;
+                document.getElementById("eth0_subnet").textContent = data.eth0_subnet;
+                document.getElementById("fallback_address").textContent = data.fallback_address;
+                document.getElementById("loopback_address").textContent = data.loopback_address;
                 document.getElementById("radio_state").textContent = data.radio_service;
+                document.getElementById("dhcp_state").textContent = data.dhcp_service;
+                document.getElementById("babel_state").textContent = data.babel_service;
                 document.getElementById("camera_state").textContent = data.camera_service;
                 document.getElementById("key_bundle").textContent = data.key_bundle_id || "none";
                 document.getElementById("current_mcs").textContent = data.current_radio.mcs_index || "unknown";
@@ -489,7 +499,12 @@ UI_HTML = """
             } catch (err) {
                 document.getElementById("hostname").textContent = "error";
                 document.getElementById("eth0_address").textContent = "error";
+                document.getElementById("eth0_subnet").textContent = "error";
+                document.getElementById("fallback_address").textContent = "error";
+                document.getElementById("loopback_address").textContent = "error";
                 document.getElementById("radio_state").textContent = "error";
+                document.getElementById("dhcp_state").textContent = "error";
+                document.getElementById("babel_state").textContent = "error";
                 document.getElementById("camera_state").textContent = "error";
                 document.getElementById("key_bundle").textContent = "error";
                 document.getElementById("current_mcs").textContent = "error";

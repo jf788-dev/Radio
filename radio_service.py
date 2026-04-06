@@ -2,7 +2,9 @@ import subprocess
 from typing import Any
 
 from app_config import (
+    BABEL_SERVICE_NAME,
     CONFIG_PATH,
+    DHCP_SERVICE_NAME,
     ETHERNET_SERVICE_NAME,
     IPRADIO_NODE_PATH,
     NODE_ID_MAX,
@@ -97,6 +99,30 @@ def configure_eth0(node_id: int):
     del node_id
     subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "enable", "--now", ETHERNET_SERVICE_NAME])
     subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "restart", ETHERNET_SERVICE_NAME])
+
+
+def configure_routed_access(node_id: int):
+    del node_id
+
+    subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "enable", "--now", DHCP_SERVICE_NAME])
+    subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "restart", DHCP_SERVICE_NAME])
+
+    peers: list[int] = []
+    if IPRADIO_NODE_PATH.exists():
+        try:
+            import json
+
+            with IPRADIO_NODE_PATH.open("r", encoding="utf-8") as file_handle:
+                node = json.load(file_handle)
+            peers = [int(peer) for peer in node.get("links", [])]
+        except Exception:
+            peers = []
+
+    if peers:
+        subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "enable", "--now", BABEL_SERVICE_NAME])
+        subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "restart", BABEL_SERVICE_NAME])
+    else:
+        subprocess.run(["/usr/bin/sudo", "/bin/systemctl", "disable", "--now", BABEL_SERVICE_NAME])
 
 
 def get_service_state(service_name: str) -> str:

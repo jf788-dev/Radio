@@ -3,35 +3,75 @@ set -eu
 
 NODE_FILE="/etc/ipradio/node.json"
 ETH_IFACE="eth0"
-SUBNET_PREFIX="10.5.0"
+LO_IFACE="lo"
+ACCESS_PREFIX="172.22"
+LOOPBACK_PREFIX="10.5.0"
 MANAGEMENT_ADDRESS="${MANAGEMENT_ADDRESS:-169.254.100.1/24}"
 
-get_node_id() {
+get_node_config() {
   if [ ! -f "$NODE_FILE" ]; then
     return 1
   fi
 
   python3 - <<'PY'
 import json
+import os
 
-with open("/etc/ipradio/node.json", "r", encoding="utf-8") as file_handle:
+node_file = os.environ["NODE_FILE"]
+
+with open(node_file, "r", encoding="utf-8") as file_handle:
     node = json.load(file_handle)
 
-print(int(node["node_id"]))
+node_id = int(node["node_id"])
+eth0_gateway = node.get("eth0_gateway", f"172.22.{node_id}.1/24")
+loopback_address = node.get("loopback_address", f"10.5.0.{node_id}/32")
+
+print(f"{eth0_gateway} {loopback_address}")
 PY
+}
+
+delete_prefix_addresses() {
+  local iface="$1"
+  local prefix="$2"
+  /sbin/ip -4 -o addr show dev "$iface" | awk '{print $4}' | while read -r cidr; do
+    case "$cidr" in
+      ${prefix}.*)
+        /usr/bin/sudo /sbin/ip address del "$cidr" dev "$iface" 2>/dev/null || true
+        ;;
+    esac
+  done
+}
+
+apply_sysctls() {
+  /usr/bin/sudo /usr/sbin/sysctl -w net.ipv4.ip_forward=1 >/dev/null
+  /usr/bin/sudo /usr/sbin/sysctl -w net.ipv4.conf.all.send_redirects=0 >/dev/null
+  /usr/bin/sudo /usr/sbin/sysctl -w net.ipv4.conf.default.send_redirects=0 >/dev/null
+  /usr/bin/sudo /usr/sbin/sysctl -w net.ipv4.conf.all.accept_redirects=0 >/dev/null
+  /usr/bin/sudo /usr/sbin/sysctl -w net.ipv4.conf.default.accept_redirects=0 >/dev/null
+  /usr/bin/sudo /usr/sbin/sysctl -w net.ipv4.conf.all.rp_filter=0 >/dev/null
+  /usr/bin/sudo /usr/sbin/sysctl -w net.ipv4.conf.default.rp_filter=0 >/dev/null
 }
 
 apply_addresses() {
   /usr/bin/sudo /sbin/ip link set "$ETH_IFACE" up
+  /usr/bin/sudo /sbin/ip link set "$LO_IFACE" up
   /usr/bin/sudo /sbin/ip address replace "$MANAGEMENT_ADDRESS" dev "$ETH_IFACE"
 
-  if NODE_ID="$(get_node_id)"; then
-    /usr/bin/sudo /sbin/ip address replace "${SUBNET_PREFIX}.${NODE_ID}/24" dev "$ETH_IFACE"
+  delete_prefix_addresses "$ETH_IFACE" "$ACCESS_PREFIX"
+  delete_prefix_addresses "$ETH_IFACE" "$LOOPBACK_PREFIX"
+  delete_prefix_addresses "$LO_IFACE" "$LOOPBACK_PREFIX"
+
+  if NODE_CONFIG="$(NODE_FILE="$NODE_FILE" get_node_config)"; then
+    ETH0_GATEWAY="$(printf '%s' "$NODE_CONFIG" | awk '{print $1}')"
+    LOOPBACK_ADDRESS="$(printf '%s' "$NODE_CONFIG" | awk '{print $2}')"
+    /usr/bin/sudo /sbin/ip address replace "$ETH0_GATEWAY" dev "$ETH_IFACE"
+    /usr/bin/sudo /sbin/ip address replace "$LOOPBACK_ADDRESS" dev "$LO_IFACE"
+    apply_sysctls
   fi
 }
 
 apply_addresses
 
-/usr/bin/sudo /sbin/ip monitor link address dev "$ETH_IFACE" | while read -r _; do
+/usr/bin/sudo /sbin/ip monitor link address | while read -r _; do
   apply_addresses
 done

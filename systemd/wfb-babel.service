@@ -1,0 +1,13 @@
+[Unit]
+Description=VISR Babel routing daemon
+After=network-online.target wfb-eth0.service
+Wants=network-online.target wfb-eth0.service
+
+[Service]
+Type=simple
+ExecStart=/opt/visr/scripts/wfb-babel.sh
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

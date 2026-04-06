@@ -13,6 +13,7 @@ IPRADIO_KEY_INDEX_PATH="${IPRADIO_DIR}/keys/index.json"
 LIVE_WFB_CFG="/etc/wifibroadcast.cfg"
 LIVE_GS_KEY="/etc/gs.key"
 LIVE_DRONE_KEY="/etc/drone.key"
+LIVE_CAMERA_CFG="/etc/default/wfb-camera"
 BUNDLED_TEST_KEY_DIR="${APP_ROOT}/config/keys/test-default"
 TOTAL_STEPS=6
 STEP=0
@@ -79,8 +80,15 @@ prepare_runtime_config() {
     install -m 644 "$IPRADIO_BASE_CFG" "$LIVE_WFB_CFG"
   fi
 
+  install -d -m 755 "$(dirname "$LIVE_CAMERA_CFG")"
+
+  if [ ! -s "$LIVE_CAMERA_CFG" ]; then
+    install -m 644 "${APP_ROOT}/config/wfb-camera.env" "$LIVE_CAMERA_CFG"
+  fi
+
   chown -R "${SERVICE_USER}:${SERVICE_USER}" "$IPRADIO_DIR"
   chown "${SERVICE_USER}:${SERVICE_USER}" "$LIVE_WFB_CFG"
+  chown "${SERVICE_USER}:${SERVICE_USER}" "$LIVE_CAMERA_CFG"
 }
 
 install_bundled_test_keys() {
@@ -131,6 +139,8 @@ install_bundled_test_keys
 
 print_step "Setting script permissions"
 chmod 755 "${APP_ROOT}/scripts/wfb-camera.sh"
+chmod 755 "${APP_ROOT}/scripts/wfb-dhcp.sh"
+chmod 755 "${APP_ROOT}/scripts/wfb-babel.sh"
 chmod 755 "${APP_ROOT}/scripts/wfb-eth0.sh"
 chmod 755 "${APP_ROOT}/scripts/build-radio-host.sh"
 chmod 755 "${APP_ROOT}/scripts/bootstrap-radio.sh"
@@ -140,6 +150,8 @@ print_step "Installing and enabling VISR services"
 install_unit "${APP_ROOT}/systemd/wfb-api.service" "wfb-api.service"
 install_unit "${APP_ROOT}/systemd/wfb-collect.service" "wfb-collect.service"
 install_unit "${APP_ROOT}/systemd/wfb-camera.service" "wfb-camera.service"
+install_unit "${APP_ROOT}/systemd/wfb-dhcp.service" "wfb-dhcp.service"
+install_unit "${APP_ROOT}/systemd/wfb-babel.service" "wfb-babel.service"
 install_unit "${APP_ROOT}/systemd/wfb-eth0.service" "wfb-eth0.service"
 install_unit "${APP_ROOT}/systemd/wfb-observability.service" "wfb-observability.service"
 
@@ -150,5 +162,7 @@ enable_service "wfb-collect.service"
 enable_service "wfb-eth0.service"
 enable_service "wfb-observability.service"
 disable_service "wfb-camera.service"
+disable_service "wfb-dhcp.service"
+disable_service "wfb-babel.service"
 
-echo "VISR bootstrap complete. API, collector, eth0, and observability services are enabled. Camera service is installed but disabled."
+echo "VISR bootstrap complete. API, collector, eth0, and observability services are enabled. Camera, DHCP, and Babel services are installed but disabled until provisioned."
