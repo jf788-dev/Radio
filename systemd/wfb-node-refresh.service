@@ -1,0 +1,12 @@
+[Unit]
+Description=VISR boot-time node refresh
+After=network-online.target wfb-api.service
+Wants=network-online.target wfb-api.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/visr/scripts/wfb-node-refresh.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
