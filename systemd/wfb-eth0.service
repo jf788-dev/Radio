@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=pi
-Environment=MANAGEMENT_ADDRESS=169.254.100.1/24
+Environment=MANAGEMENT_ADDRESS=169.254.100.1/16
 ExecStart=/opt/visr/scripts/wfb-eth0.sh
 Restart=always
 RestartSec=2
