@@ -1,5 +1,7 @@
 from pathlib import Path
 
+APP_ROOT = Path(__file__).resolve().parent
+
 NODE_ID_MIN = 1
 NODE_ID_MAX = 16
 GROUND_STATION_NAME = "ground_station"
@@ -20,9 +22,9 @@ IPRADIO_BABEL_CONFIG_PATH = Path("/etc/ipradio/babeld.conf")
 WFB_GS_KEY_PATH = Path("/etc/gs.key")
 WFB_DRONE_KEY_PATH = Path("/etc/drone.key")
 WFB_KEYGEN_COMMAND = "/usr/bin/wfb_keygen"
-BUNDLED_BASE_CONFIG_PATH = Path("config/base.cfg")
-BUNDLED_TEST_KEY_DIR = Path("config/keys/test-default")
-CAMERA_DEFAULT_CONFIG_TEMPLATE_PATH = Path("config/wfb-camera.env")
+BUNDLED_BASE_CONFIG_PATH = APP_ROOT / "config/base.cfg"
+BUNDLED_TEST_KEY_DIR = APP_ROOT / "config/keys/test-default"
+CAMERA_DEFAULT_CONFIG_TEMPLATE_PATH = APP_ROOT / "config/wfb-camera.env"
 
 WFB_API_HOST = "127.0.0.1"
 WFB_API_PORT = 8102
