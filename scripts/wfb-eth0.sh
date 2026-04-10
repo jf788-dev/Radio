@@ -25,8 +25,8 @@ with open(node_file, "r", encoding="utf-8") as file_handle:
     node = json.load(file_handle)
 
 node_id = int(node["node_id"])
-eth0_gateway = node.get("eth0_gateway", f"172.22.{node_id}.1/24")
-loopback_address = node.get("loopback_address", f"10.5.0.{node_id}/32")
+eth0_gateway = f"172.22.{node_id}.1/24"
+loopback_address = f"10.5.0.{node_id}/32"
 
 print(f"{eth0_gateway} {loopback_address}")
 PY

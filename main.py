@@ -1,3 +1,7 @@
+import subprocess
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -38,21 +42,19 @@ from key_service import (
     key_bundle_exists,
     set_default_test_bundle,
 )
-from provisioning_service import write_ipradio_node
+from node_config import write_target_node
 from radio_service import (
     get_current_radio_settings,
     get_service_name,
     get_service_state,
-    configure_routed_access,
-    configure_eth0,
     restart_radio,
-    sync_radio_services,
     update_base_value,
     update_tunnel_value,
 )
 from ui import UI_HTML
 
 app = FastAPI()
+APP_ROOT = Path(__file__).resolve().parent
 
 
 class KeyBundleImportRequest(BaseModel):
@@ -102,6 +104,19 @@ def apply_radio_settings(mcs_index: int, bandwidth: int, fec_k: int, fec_n: int)
         "FEC K value",
         "FEC N value",
     )
+
+
+def run_boot_orchestrator() -> dict:
+    result = subprocess.run(
+        [sys.executable, str(APP_ROOT / "scripts" / "wfb_boot.py")],
+        capture_output=True,
+        text=True,
+    )
+    return {
+        "ok": result.returncode == 0,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }
 
 
 @app.get("/")
@@ -343,17 +358,20 @@ def ipradio_provision(node_id: int, peers: str, video_rx_target: str):
         return {"error": f"invalid peer ids: {invalid_peers}"}
 
     try:
-        write_ipradio_node(node_id, peer_list, video_rx_target)
+        write_target_node(node_id, peer_list, video_rx_target)
     except FileNotFoundError as error:
         return {"error": f"missing file: {str(error)}"}
     except Exception as error:
         return {"error": str(error)}
 
-    sync_radio_services(node_id)
-    set_node_hostname(node_id)
-    configure_eth0(node_id)
-    restart_radio(node_id)
-    configure_routed_access(node_id)
+    try:
+        set_node_hostname(node_id)
+    except Exception as error:
+        return {"error": str(error)}
+
+    boot = run_boot_orchestrator()
+    if not boot["ok"]:
+        return {"error": "boot orchestration failed", "stdout": boot["stdout"], "stderr": boot["stderr"]}
 
     return {
         "status": "provisioned",
@@ -367,6 +385,7 @@ def ipradio_provision(node_id: int, peers: str, video_rx_target: str):
         "peers": peer_list,
         "video_rx_target": video_rx_target,
         "service_name": get_service_name(node_id),
+        "boot_stdout": boot["stdout"],
     }
 
 
@@ -404,18 +423,21 @@ def apply_node_config(
         return {"error": f"invalid peer ids: {invalid_peers}"}
 
     try:
-        write_ipradio_node(node_id, peer_list, video_rx_target)
+        write_target_node(node_id, peer_list, video_rx_target)
     except FileNotFoundError as error:
         return {"error": f"missing file: {str(error)}"}
     except Exception as error:
         return {"error": str(error)}
 
     apply_radio_settings(mcs_index, bandwidth, fec_k, fec_n)
-    sync_radio_services(node_id)
-    set_node_hostname(node_id)
-    configure_eth0(node_id)
-    restart_radio(node_id)
-    configure_routed_access(node_id)
+    try:
+        set_node_hostname(node_id)
+    except Exception as error:
+        return {"error": str(error)}
+
+    boot = run_boot_orchestrator()
+    if not boot["ok"]:
+        return {"error": "boot orchestration failed", "stdout": boot["stdout"], "stderr": boot["stderr"]}
 
     return {
         "status": "applied",
@@ -433,6 +455,7 @@ def apply_node_config(
         "fec_k": fec_k,
         "fec_n": fec_n,
         "service_name": get_service_name(node_id),
+        "boot_stdout": boot["stdout"],
     }
 
 

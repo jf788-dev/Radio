@@ -18,9 +18,9 @@ with open("/etc/ipradio/node.json", "r", encoding="utf-8") as file_handle:
     node = json.load(file_handle)
 
 node_id = int(node["node_id"])
-gateway_ip = node.get("eth0_gateway_ip", f"172.22.{node_id}.1")
-range_start = node.get("dhcp_range_start", f"172.22.{node_id}.100")
-range_end = node.get("dhcp_range_end", f"172.22.{node_id}.199")
+gateway_ip = f"172.22.{node_id}.1"
+range_start = f"172.22.{node_id}.100"
+range_end = f"172.22.{node_id}.199"
 
 print("port=0")
 print("interface=eth0")

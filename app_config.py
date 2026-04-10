@@ -10,8 +10,7 @@ HOSTNAME_PATH = Path("/etc/hostname")
 HOSTS_PATH = Path("/etc/hosts")
 
 IPRADIO_NODE_PATH = Path("/etc/ipradio/node.json")
-IPRADIO_BASE_PATH = Path("/etc/ipradio/base.cfg")
-IPRADIO_NODE_CFG_PATH = Path("/etc/ipradio/node.cfg")
+IPRADIO_TARGET_PATH = Path("/etc/ipradio/node_prov.json")
 IPRADIO_FINAL_CFG_PATH = CONFIG_PATH
 IPRADIO_KEY_DIR = Path("/etc/ipradio/keys")
 IPRADIO_KEY_INDEX_PATH = IPRADIO_KEY_DIR / "index.json"
@@ -21,6 +20,7 @@ IPRADIO_BABEL_CONFIG_PATH = Path("/etc/ipradio/babeld.conf")
 WFB_GS_KEY_PATH = Path("/etc/gs.key")
 WFB_DRONE_KEY_PATH = Path("/etc/drone.key")
 WFB_KEYGEN_COMMAND = "/usr/bin/wfb_keygen"
+BUNDLED_BASE_CONFIG_PATH = Path("config/base.cfg")
 BUNDLED_TEST_KEY_DIR = Path("config/keys/test-default")
 CAMERA_DEFAULT_CONFIG_TEMPLATE_PATH = Path("config/wfb-camera.env")
 

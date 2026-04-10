@@ -83,8 +83,8 @@ with open("/etc/ipradio/node.json", "r", encoding="utf-8") as file_handle:
 
 node_id = int(node["node_id"])
 peers = sorted({int(peer) for peer in node.get("links", []) if int(peer) != node_id})
-eth0_subnet = node.get("eth0_subnet", f"172.22.{node_id}.0/24")
-loopback_address = node.get("loopback_address", f"10.5.0.{node_id}/32")
+eth0_subnet = f"172.22.{node_id}.0/24"
+loopback_address = f"10.5.0.{node_id}/32"
 
 print("kernel-priority 100")
 print("link-detect true")

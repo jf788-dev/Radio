@@ -7,7 +7,6 @@ VENV_DIR="${APP_ROOT}/venv"
 SERVICE_USER="${SERVICE_USER:-pi}"
 SOURCE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IPRADIO_DIR="/etc/ipradio"
-IPRADIO_BASE_CFG="${IPRADIO_DIR}/base.cfg"
 IPRADIO_CURRENT_KEY_PATH="${IPRADIO_DIR}/current_key.json"
 IPRADIO_KEY_INDEX_PATH="${IPRADIO_DIR}/keys/index.json"
 LIVE_WFB_CFG="/etc/wifibroadcast.cfg"
@@ -15,6 +14,7 @@ LIVE_GS_KEY="/etc/gs.key"
 LIVE_DRONE_KEY="/etc/drone.key"
 LIVE_CAMERA_CFG="/etc/default/wfb-camera"
 BUNDLED_TEST_KEY_DIR="${APP_ROOT}/config/keys/test-default"
+DEFAULT_NODE_TEMPLATE="${APP_ROOT}/config/default-node.json"
 TOTAL_STEPS=6
 STEP=0
 
@@ -72,12 +72,12 @@ prepare_runtime_config() {
   install -d -m 755 "${IPRADIO_DIR}/keys"
   install -d -m 755 "${IPRADIO_DIR}/keys/test-default"
 
-  if [ ! -s "$IPRADIO_BASE_CFG" ]; then
-    install -m 644 "${APP_ROOT}/config/base.cfg" "$IPRADIO_BASE_CFG"
+  if [ ! -s "$LIVE_WFB_CFG" ]; then
+    install -m 644 "${APP_ROOT}/config/base.cfg" "$LIVE_WFB_CFG"
   fi
 
-  if [ ! -s "$LIVE_WFB_CFG" ]; then
-    install -m 644 "$IPRADIO_BASE_CFG" "$LIVE_WFB_CFG"
+  if [ -s "$DEFAULT_NODE_TEMPLATE" ] && [ ! -s "${IPRADIO_DIR}/default_node.json" ]; then
+    install -m 644 "$DEFAULT_NODE_TEMPLATE" "${IPRADIO_DIR}/default_node.json"
   fi
 
   install -d -m 755 "$(dirname "$LIVE_CAMERA_CFG")"
@@ -142,6 +142,8 @@ chmod 755 "${APP_ROOT}/scripts/wfb-camera.sh"
 chmod 755 "${APP_ROOT}/scripts/wfb-dhcp.sh"
 chmod 755 "${APP_ROOT}/scripts/wfb-babel.sh"
 chmod 755 "${APP_ROOT}/scripts/wfb-eth0.sh"
+chmod 755 "${APP_ROOT}/scripts/wfb-boot.sh"
+chmod 755 "${APP_ROOT}/scripts/wfb_boot.py"
 chmod 755 "${APP_ROOT}/scripts/wfb-node-refresh.sh"
 chmod 755 "${APP_ROOT}/scripts/build-radio-host.sh"
 chmod 755 "${APP_ROOT}/scripts/bootstrap-radio.sh"
@@ -159,13 +161,13 @@ install_unit "${APP_ROOT}/systemd/wfb-observability.service" "wfb-observability.
 
 systemctl daemon-reload
 
-enable_service "wfb-api.service"
-enable_service "wfb-collect.service"
-enable_service "wfb-eth0.service"
 enable_service "wfb-node-refresh.service"
-enable_service "wfb-observability.service"
+disable_service "wfb-api.service"
+disable_service "wfb-collect.service"
+disable_service "wfb-eth0.service"
+disable_service "wfb-observability.service"
 disable_service "wfb-camera.service"
 disable_service "wfb-dhcp.service"
 disable_service "wfb-babel.service"
 
-echo "VISR bootstrap complete. API, collector, eth0, and observability services are enabled. Camera, DHCP, and Babel services are installed but disabled until provisioned."
+echo "VISR bootstrap complete. The boot orchestrator is enabled and will bring up API, radio, eth0, DHCP, Babel, observability, and the collector in order. Camera remains installed but disabled by default."

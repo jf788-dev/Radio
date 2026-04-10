@@ -2,13 +2,8 @@ import subprocess
 from typing import Any
 
 from app_config import (
-    BABEL_SERVICE_NAME,
     CONFIG_PATH,
-    DHCP_SERVICE_NAME,
-    ETHERNET_SERVICE_NAME,
     IPRADIO_NODE_PATH,
-    NODE_ID_MAX,
-    NODE_ID_MIN,
     format_service_name,
 )
 
@@ -82,60 +77,6 @@ def restart_radio(node_id: int):
     service_name = get_service_name(node_id)
     _run_system_command("/usr/bin/sudo", "/usr/sbin/rfkill", "unblock", "all")
     _run_system_command("/usr/bin/sudo", "/bin/systemctl", "restart", service_name)
-
-
-def sync_radio_services(node_id: int):
-    target_service = get_service_name(node_id)
-
-    for candidate_id in range(NODE_ID_MIN, NODE_ID_MAX + 1):
-        service_name = get_service_name(candidate_id)
-        if service_name == target_service:
-            continue
-
-        _run_system_command("/usr/bin/sudo", "/bin/systemctl", "disable", "--now", service_name)
-
-    # Disable the legacy ground-station profile if it exists so it doesn't recreate old interfaces at boot.
-    _run_system_command("/usr/bin/sudo", "/bin/systemctl", "disable", "--now", "wifibroadcast@gs")
-    _run_system_command("/usr/bin/sudo", "/bin/systemctl", "enable", "--now", target_service)
-
-
-def configure_eth0(node_id: int):
-    del node_id
-    _run_system_command("/usr/bin/sudo", "/bin/systemctl", "enable", "--now", ETHERNET_SERVICE_NAME)
-    _run_system_command("/usr/bin/sudo", "/bin/systemctl", "restart", ETHERNET_SERVICE_NAME)
-
-
-def _set_eth0_unmanaged():
-    # Keep NetworkManager running for wlan1/nmcli, but stop it from rewriting eth0.
-    _run_system_command("/usr/bin/sudo", "/usr/bin/nmcli", "device", "set", "eth0", "managed", "no")
-
-
-def configure_routed_access(node_id: int):
-    del node_id
-
-    _set_eth0_unmanaged()
-    # eth0 is the final refresh step after provisioning/radio changes.
-    _run_system_command("/usr/bin/sudo", "/bin/systemctl", "enable", "--now", ETHERNET_SERVICE_NAME)
-    _run_system_command("/usr/bin/sudo", "/bin/systemctl", "restart", ETHERNET_SERVICE_NAME)
-    _run_system_command("/usr/bin/sudo", "/bin/systemctl", "enable", "--now", DHCP_SERVICE_NAME)
-    _run_system_command("/usr/bin/sudo", "/bin/systemctl", "restart", DHCP_SERVICE_NAME)
-
-    peers: list[int] = []
-    if IPRADIO_NODE_PATH.exists():
-        try:
-            import json
-
-            with IPRADIO_NODE_PATH.open("r", encoding="utf-8") as file_handle:
-                node = json.load(file_handle)
-            peers = [int(peer) for peer in node.get("links", [])]
-        except Exception:
-            peers = []
-
-    if peers:
-        _run_system_command("/usr/bin/sudo", "/bin/systemctl", "enable", "--now", BABEL_SERVICE_NAME)
-        _run_system_command("/usr/bin/sudo", "/bin/systemctl", "restart", BABEL_SERVICE_NAME)
-    else:
-        _run_system_command("/usr/bin/sudo", "/bin/systemctl", "disable", "--now", BABEL_SERVICE_NAME)
 
 
 def get_service_state(service_name: str) -> str:
