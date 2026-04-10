@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -19,7 +20,7 @@ from node_config import render_wfb_config
 CURRENT_NODE_FILE = Path("/etc/ipradio/node.json")
 TARGET_NODE_FILE = Path("/etc/ipradio/node_prov.json")
 DEFAULT_NODE_FILE = Path("/etc/ipradio/default_node.json")
-ROLLBACK_NODE_FILE = Path("/run/wfb-node.rollback.json")
+ROLLBACK_NODE_FILE = Path("/etc/ipradio/node.rollback.json")
 FINAL_CFG_FILE = Path("/etc/wifibroadcast.cfg")
 
 API_SERVICE = "wfb-api.service"
@@ -28,20 +29,38 @@ OBSERVABILITY_SERVICE = "wfb-observability.service"
 ETH0_SERVICE = "wfb-eth0.service"
 DHCP_SERVICE = "wfb-dhcp.service"
 BABEL_SERVICE = "wfb-babel.service"
+REQUIRED_EXECUTABLES = [
+    APP_ROOT / "scripts" / "wfb-boot.sh",
+    APP_ROOT / "scripts" / "wfb-node-refresh.sh",
+    APP_ROOT / "scripts" / "wfb_boot.py",
+    APP_ROOT / "scripts" / "wfb-eth0.sh",
+    APP_ROOT / "scripts" / "wfb-dhcp.sh",
+    APP_ROOT / "scripts" / "wfb-babel.sh",
+    APP_ROOT / "scripts" / "wfb-camera.sh",
+]
 
 
 def log(message: str) -> None:
     print(f"[wfb-boot] {message}", flush=True)
 
 
+def run_root(args: list[str], check: bool = True, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
+    command = args
+    if os.geteuid() != 0:
+        command = ["/usr/bin/sudo", *args]
+    return subprocess.run(command, check=check, text=True, capture_output=capture_output)
+
+
+def ensure_executables() -> None:
+    # Keep runtime scripts executable even after copy/pull edge cases.
+    for script_path in REQUIRED_EXECUTABLES:
+        if script_path.is_file():
+            run_root(["/bin/chmod", "755", str(script_path)], check=False)
+
+
 def wait_for_service(service_name: str, tries: int = 10) -> None:
     for _ in range(tries):
-        result = subprocess.run(
-            ["/bin/systemctl", "is-active", service_name],
-            check=False,
-            text=True,
-            capture_output=True,
-        )
+        result = run_root(["/bin/systemctl", "is-active", service_name], check=False, capture_output=True)
         if result.stdout.strip() == "active":
             return
         time.sleep(1)
@@ -71,21 +90,21 @@ def start_stack(node: dict) -> None:
     tunnels = [f"wfb{node_id:02d}{peer:02d}" for peer in peers]
 
     log("starting observability")
-    subprocess.run(["/bin/systemctl", "enable", "--now", OBSERVABILITY_SERVICE], check=True, text=True)
+    run_root(["/bin/systemctl", "enable", "--now", OBSERVABILITY_SERVICE])
 
     log("starting api")
-    subprocess.run(["/bin/systemctl", "enable", "--now", API_SERVICE], check=True, text=True)
+    run_root(["/bin/systemctl", "enable", "--now", API_SERVICE])
     wait_for_service(API_SERVICE)
 
     log(f"selecting node{node_id:02d} radio")
     for candidate_id in range(1, 17):
         service_name = f"wifibroadcast@node{candidate_id:02d}"
         if service_name != radio_service:
-            subprocess.run(["/bin/systemctl", "disable", "--now", service_name], check=False, text=True)
-    subprocess.run(["/bin/systemctl", "disable", "--now", "wifibroadcast@gs"], check=False, text=True)
-    subprocess.run(["/usr/sbin/rfkill", "unblock", "all"], check=False, text=True)
-    subprocess.run(["/bin/systemctl", "enable", "--now", radio_service], check=True, text=True)
-    subprocess.run(["/bin/systemctl", "restart", radio_service], check=True, text=True)
+            run_root(["/bin/systemctl", "disable", "--now", service_name], check=False)
+    run_root(["/bin/systemctl", "disable", "--now", "wifibroadcast@gs"], check=False)
+    run_root(["/usr/sbin/rfkill", "unblock", "all"], check=False)
+    run_root(["/bin/systemctl", "enable", "--now", radio_service])
+    run_root(["/bin/systemctl", "restart", radio_service])
     wait_for_service(radio_service)
 
     if tunnels:
@@ -98,26 +117,26 @@ def start_stack(node: dict) -> None:
             raise RuntimeError("expected tunnel interfaces did not appear")
 
     log("starting eth0 keeper")
-    subprocess.run(["/bin/systemctl", "enable", "--now", ETH0_SERVICE], check=True, text=True)
-    subprocess.run(["/bin/systemctl", "restart", ETH0_SERVICE], check=True, text=True)
+    run_root(["/bin/systemctl", "enable", "--now", ETH0_SERVICE])
+    run_root(["/bin/systemctl", "restart", ETH0_SERVICE])
     wait_for_service(ETH0_SERVICE)
 
     log("starting dhcp")
-    subprocess.run(["/bin/systemctl", "enable", "--now", DHCP_SERVICE], check=True, text=True)
-    subprocess.run(["/bin/systemctl", "restart", DHCP_SERVICE], check=True, text=True)
+    run_root(["/bin/systemctl", "enable", "--now", DHCP_SERVICE])
+    run_root(["/bin/systemctl", "restart", DHCP_SERVICE])
     wait_for_service(DHCP_SERVICE)
 
     if peers:
         log("starting babel")
-        subprocess.run(["/bin/systemctl", "enable", "--now", BABEL_SERVICE], check=True, text=True)
-        subprocess.run(["/bin/systemctl", "restart", BABEL_SERVICE], check=True, text=True)
+        run_root(["/bin/systemctl", "enable", "--now", BABEL_SERVICE])
+        run_root(["/bin/systemctl", "restart", BABEL_SERVICE])
         wait_for_service(BABEL_SERVICE, 25)
     else:
         log("stopping babel for node without peers")
-        subprocess.run(["/bin/systemctl", "disable", "--now", BABEL_SERVICE], check=False, text=True)
+        run_root(["/bin/systemctl", "disable", "--now", BABEL_SERVICE], check=False)
 
     log("starting collector")
-    subprocess.run(["/bin/systemctl", "enable", "--now", COLLECT_SERVICE], check=True, text=True)
+    run_root(["/bin/systemctl", "enable", "--now", COLLECT_SERVICE])
 
 
 def rollback() -> dict:
@@ -133,6 +152,8 @@ def rollback() -> dict:
 
 
 def main() -> int:
+    ensure_executables()
+
     try:
         source_file = choose_config()
     except FileNotFoundError as error:
@@ -140,6 +161,7 @@ def main() -> int:
         return 1
 
     if CURRENT_NODE_FILE.is_file() and source_file != CURRENT_NODE_FILE:
+        ROLLBACK_NODE_FILE.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(CURRENT_NODE_FILE, ROLLBACK_NODE_FILE)
 
     log(f"activating {source_file.name}")
