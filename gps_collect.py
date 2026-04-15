@@ -21,7 +21,7 @@ def main():
     # ---------- CONFIG ----------
     SERIAL_PORT = "/dev/ttyUSB0"
     BAUD = 38400
-    node_name = GROUND_STATION_NAME
+    node_name = "radio1"
     TOPIC = f"visr/sensors/gps/{node_name}"
 
     PUBLISH_HZ = 1.0            # publish cadence to MQTT
